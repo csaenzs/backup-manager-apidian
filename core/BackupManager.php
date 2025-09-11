@@ -98,14 +98,14 @@ class BackupManager {
         
         // Check if this is an incremental backup
         $dbSize = Config::getDatabaseSize();
-        $isLargeDb = $dbSize > 1000; // Consider incremental for databases > 1GB
+        $hasBaseBackup = $this->hasRecentDatabaseBackup();
         
-        $backupType = $isLargeDb ? 'incremental' : 'full';
-        $this->log("Database size: {$dbSize}MB - Using $backupType backup strategy");
-        
-        if ($isLargeDb && $this->hasRecentDatabaseBackup()) {
+        // Use incremental if we have a base backup and binary logs are enabled
+        if ($hasBaseBackup && Config::isBinaryLoggingEnabled()) {
+            $this->log("Database size: {$dbSize}MB - Using incremental backup strategy (binary logs available)");
             return $this->backupDatabaseIncremental($backupId);
         } else {
+            $this->log("Database size: {$dbSize}MB - Using full backup strategy (first backup or no binary logs)");
             return $this->backupDatabaseFull($backupId);
         }
     }
@@ -186,12 +186,12 @@ class BackupManager {
         
         $this->log("Full database backup completed: $backupFile");
         
-        // Save current binary log position for future incremental backups
+        // Get current binary log position for future incremental backups (will be saved in saveBackupRecord)
+        $this->currentBinaryLogPosition = null;
         if (Config::isBinaryLoggingEnabled()) {
-            $currentPosition = Config::getBinaryLogPosition();
-            if ($currentPosition) {
-                $this->saveBinaryLogPosition($backupId, $currentPosition);
-                $this->log("Saved binary log position for incremental backups: {$currentPosition['file']}:{$currentPosition['position']}");
+            $this->currentBinaryLogPosition = Config::getBinaryLogPosition();
+            if ($this->currentBinaryLogPosition) {
+                $this->log("Current binary log position: {$this->currentBinaryLogPosition['file']}:{$this->currentBinaryLogPosition['position']}");
             }
         }
         
@@ -677,7 +677,7 @@ class BackupManager {
             'incremental_info' => $incrementalInfo,
             'status' => 'completed',
             'server' => Config::get('server_name', gethostname()),
-            'binary_log_position' => null // Will be set by saveBinaryLogPosition if needed
+            'binary_log_position' => $this->currentBinaryLogPosition
         ];
         
         array_unshift($history, $record);
@@ -782,7 +782,8 @@ class BackupManager {
         // Look for the most recent database backup with binary log position
         foreach ($history as $backup) {
             if (($backup['type'] === 'full' || $backup['type'] === 'database') && 
-                isset($backup['binary_log_position'])) {
+                isset($backup['binary_log_position']) && 
+                $backup['binary_log_position'] !== null) {
                 return $backup['binary_log_position'];
             }
         }
