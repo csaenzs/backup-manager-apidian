@@ -13,6 +13,7 @@ class BackupManager {
     public function __construct() {
         $this->progressFile = Config::get('temp_path') . '/backup_progress.json';
         $this->logFile = Config::get('log_path') . '/backup_' . date('Y-m-d') . '.log';
+        $this->currentBinaryLogPosition = null;
         
         // Ensure directories exist
         $this->ensureDirectories();
