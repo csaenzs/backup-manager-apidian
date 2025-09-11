@@ -185,6 +185,16 @@ class BackupManager {
         }
         
         $this->log("Full database backup completed: $backupFile");
+        
+        // Save current binary log position for future incremental backups
+        if (Config::isBinaryLoggingEnabled()) {
+            $currentPosition = Config::getBinaryLogPosition();
+            if ($currentPosition) {
+                $this->saveBinaryLogPosition($backupId, $currentPosition);
+                $this->log("Saved binary log position for incremental backups: {$currentPosition['file']}:{$currentPosition['position']}");
+            }
+        }
+        
         return $backupFile;
     }
     
@@ -194,10 +204,146 @@ class BackupManager {
     private function backupDatabaseIncremental($backupId) {
         $this->updateProgress(15, "Backup incremental de base de datos...");
         
-        // For now, fallback to full backup as incremental DB backup requires binary log setup
-        // This would be implemented with binary log position tracking
-        $this->log("Incremental DB backup not yet implemented, falling back to full backup");
-        return $this->backupDatabaseFull($backupId);
+        // Check if binary logging is enabled
+        if (!Config::isBinaryLoggingEnabled()) {
+            $this->log("Binary logging not enabled, falling back to full backup", 'WARNING');
+            return $this->backupDatabaseFull($backupId);
+        }
+        
+        // Get last backup position
+        $lastPosition = $this->getLastBinaryLogPosition();
+        if (!$lastPosition) {
+            $this->log("No previous backup position found, creating base backup", 'INFO');
+            return $this->backupDatabaseFull($backupId);
+        }
+        
+        $this->updateProgress(20, "Extrayendo binary logs desde última posición...");
+        
+        // Create incremental backup using mysqlbinlog
+        $backupFile = Config::get('backup_path') . "/db_{$backupId}_incremental.sql";
+        $compression = Config::get('compression', 'medium');
+        
+        $dbHost = Config::get('db_host', 'localhost');
+        $dbPort = Config::get('db_port', '3306');
+        $dbUser = Config::get('db_user');
+        $dbPass = Config::get('db_pass');
+        $dbName = Config::get('db_name');
+        
+        // Build mysqlbinlog command for incremental backup
+        $cmd = sprintf(
+            "mysqlbinlog --read-from-remote-server --host=%s --port=%s --user=%s %s " .
+            "--start-position=%s --database=%s %s",
+            escapeshellarg($dbHost),
+            escapeshellarg($dbPort),
+            escapeshellarg($dbUser),
+            $dbPass ? '--password=' . escapeshellarg($dbPass) : '',
+            escapeshellarg($lastPosition['position']),
+            escapeshellarg($dbName),
+            escapeshellarg($lastPosition['file'])
+        );
+        
+        // Get current position to save for next incremental
+        $currentPosition = Config::getBinaryLogPosition();
+        if (!$currentPosition) {
+            $this->log("Could not get current binary log position", 'ERROR');
+            return $this->backupDatabaseFull($backupId);
+        }
+        
+        // If no new changes since last backup
+        if ($currentPosition['position'] <= $lastPosition['position'] && 
+            $currentPosition['file'] === $lastPosition['file']) {
+            $this->log("No changes detected since last backup", 'INFO');
+            $this->updateProgress(100, "No hay cambios en la base de datos");
+            
+            // Create empty incremental backup file
+            file_put_contents($backupFile, "-- No changes since last backup at " . date('Y-m-d H:i:s') . "\n");
+            
+            // Save position anyway
+            $this->saveBinaryLogPosition($backupId, $currentPosition);
+            return $backupFile;
+        }
+        
+        $this->updateProgress(30, "Procesando cambios incrementales...");
+        
+        // Include all binary logs between last position and current
+        $binaryLogs = Config::getBinaryLogs();
+        $logsToProcess = $this->getLogsBetweenPositions($binaryLogs, $lastPosition, $currentPosition);
+        
+        if (empty($logsToProcess)) {
+            $this->log("No binary logs found between positions", 'WARNING');
+            return $this->backupDatabaseFull($backupId);
+        }
+        
+        // Process each binary log
+        $allChanges = [];
+        $progress = 30;
+        $progressStep = 40 / count($logsToProcess);
+        
+        foreach ($logsToProcess as $logFile) {
+            $this->updateProgress($progress, "Procesando {$logFile}...");
+            
+            $startPos = ($logFile === $lastPosition['file']) ? $lastPosition['position'] : 4; // 4 is the minimum position
+            $endPos = ($logFile === $currentPosition['file']) ? $currentPosition['position'] : 0;
+            
+            $logCmd = sprintf(
+                "mysqlbinlog --read-from-remote-server --host=%s --port=%s --user=%s %s " .
+                "--start-position=%s %s --database=%s %s",
+                escapeshellarg($dbHost),
+                escapeshellarg($dbPort),
+                escapeshellarg($dbUser),
+                $dbPass ? '--password=' . escapeshellarg($dbPass) : '',
+                escapeshellarg($startPos),
+                $endPos > 0 ? '--stop-position=' . escapeshellarg($endPos) : '',
+                escapeshellarg($dbName),
+                escapeshellarg($logFile)
+            );
+            
+            $output = shell_exec($logCmd . ' 2>&1');
+            if ($output) {
+                $allChanges[] = $output;
+            }
+            
+            $progress += $progressStep;
+        }
+        
+        $this->updateProgress(75, "Generando archivo de backup incremental...");
+        
+        // Combine all changes into a single file
+        $incrementalSql = "-- Incremental backup from " . date('Y-m-d H:i:s', $lastPosition['timestamp']) . 
+                         " to " . date('Y-m-d H:i:s') . "\n";
+        $incrementalSql .= "-- From position {$lastPosition['file']}:{$lastPosition['position']} ";
+        $incrementalSql .= "to {$currentPosition['file']}:{$currentPosition['position']}\n\n";
+        $incrementalSql .= implode("\n", $allChanges);
+        
+        // Apply compression if needed
+        if ($compression !== 'none') {
+            $backupFile .= '.gz';
+            $compressionLevel = $compression === 'high' ? '9' : ($compression === 'low' ? '1' : '6');
+            
+            // Use pigz for parallel compression if available
+            $pigzAvailable = trim(shell_exec("which pigz 2>/dev/null"));
+            if ($pigzAvailable) {
+                $compressed = shell_exec("echo " . escapeshellarg($incrementalSql) . " | pigz -$compressionLevel");
+            } else {
+                $compressed = gzcompress($incrementalSql, $compressionLevel);
+            }
+            file_put_contents($backupFile, $compressed);
+        } else {
+            file_put_contents($backupFile, $incrementalSql);
+        }
+        
+        $this->updateProgress(90, "Guardando posición actual...");
+        
+        // Save current position for next incremental backup
+        $this->saveBinaryLogPosition($backupId, $currentPosition);
+        
+        $this->updateProgress(95, "Backup incremental de BD completado");
+        $this->log("Incremental database backup completed: $backupFile");
+        
+        // Clean up old binary logs (optional)
+        $this->cleanupOldBinaryLogs();
+        
+        return $backupFile;
     }
     
     /**
@@ -530,7 +676,8 @@ class BackupManager {
             'duration' => time() - $this->startTime,
             'incremental_info' => $incrementalInfo,
             'status' => 'completed',
-            'server' => Config::get('server_name', gethostname())
+            'server' => Config::get('server_name', gethostname()),
+            'binary_log_position' => null // Will be set by saveBinaryLogPosition if needed
         ];
         
         array_unshift($history, $record);
@@ -615,6 +762,113 @@ class BackupManager {
         }
         
         return round($bytes, $precision) . ' ' . $units[$i];
+    }
+    
+    /**
+     * Get the last binary log position from backup history
+     */
+    private function getLastBinaryLogPosition() {
+        $historyFile = Config::get('backup_path') . '/history.json';
+        
+        if (!file_exists($historyFile)) {
+            return null;
+        }
+        
+        $history = json_decode(file_get_contents($historyFile), true);
+        if (empty($history)) {
+            return null;
+        }
+        
+        // Look for the most recent database backup with binary log position
+        foreach ($history as $backup) {
+            if (($backup['type'] === 'full' || $backup['type'] === 'database') && 
+                isset($backup['binary_log_position'])) {
+                return $backup['binary_log_position'];
+            }
+        }
+        
+        return null;
+    }
+    
+    /**
+     * Save binary log position for future incremental backups
+     */
+    private function saveBinaryLogPosition($backupId, $position) {
+        $historyFile = Config::get('backup_path') . '/history.json';
+        
+        if (file_exists($historyFile)) {
+            $history = json_decode(file_get_contents($historyFile), true) ?: [];
+            
+            // Find the current backup and add position info
+            foreach ($history as &$backup) {
+                if ($backup['id'] === $backupId) {
+                    $backup['binary_log_position'] = $position;
+                    break;
+                }
+            }
+            
+            file_put_contents($historyFile, json_encode($history, JSON_PRETTY_PRINT));
+        }
+    }
+    
+    /**
+     * Get binary logs between two positions
+     */
+    private function getLogsBetweenPositions($allLogs, $startPosition, $endPosition) {
+        $logsToProcess = [];
+        $startFound = false;
+        
+        foreach ($allLogs as $log) {
+            $logFile = $log['Log_name'];
+            
+            // If we haven't found the start log yet
+            if (!$startFound) {
+                if ($logFile === $startPosition['file']) {
+                    $startFound = true;
+                    $logsToProcess[] = $logFile;
+                }
+                continue;
+            }
+            
+            // Add logs until we reach the end log
+            if ($logFile === $endPosition['file']) {
+                $logsToProcess[] = $logFile;
+                break;
+            }
+            
+            $logsToProcess[] = $logFile;
+        }
+        
+        return $logsToProcess;
+    }
+    
+    /**
+     * Clean up old binary logs to save space
+     */
+    private function cleanupOldBinaryLogs() {
+        $retentionDays = Config::get('retention_days', 30);
+        $cutoffTime = time() - ($retentionDays * 86400);
+        
+        $binaryLogs = Config::getBinaryLogs();
+        
+        foreach ($binaryLogs as $log) {
+            $logFile = $log['Log_name'];
+            $logSize = $log['File_size'];
+            
+            // Don't purge logs that are too recent or currently in use
+            if (isset($log['Modified']) && strtotime($log['Modified']) > $cutoffTime) {
+                continue;
+            }
+            
+            // Purge old binary logs (be very careful with this)
+            // Only purge if we have a recent full backup
+            $recentFullBackup = $this->hasRecentDatabaseBackup();
+            if ($recentFullBackup) {
+                $this->log("Considering purge of old binary log: $logFile (size: $logSize bytes)");
+                // Actual purging would be done here with Config::purgeBinaryLogs()
+                // For safety, we'll log it but not auto-purge unless explicitly configured
+            }
+        }
     }
     
     /**

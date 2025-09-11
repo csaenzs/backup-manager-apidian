@@ -143,16 +143,39 @@ class Config {
             return 0;
         }
         
+        // Try direct PDO connection first for accuracy
+        try {
+            $dsn = "mysql:host={$dbHost};dbname={$dbName};charset=utf8mb4";
+            $pdo = new PDO($dsn, $dbUser, $dbPass, [
+                PDO::ATTR_ERRMODE => PDO::ERRMODE_EXCEPTION
+            ]);
+            
+            $stmt = $pdo->prepare("
+                SELECT ROUND(SUM(data_length + index_length) / 1024 / 1024, 2) AS size 
+                FROM information_schema.TABLES 
+                WHERE table_schema = ?
+            ");
+            $stmt->execute([$dbName]);
+            $result = $stmt->fetch(PDO::FETCH_ASSOC);
+            
+            if ($result && isset($result['size'])) {
+                return floatval($result['size']);
+            }
+        } catch (Exception $e) {
+            error_log("Database size query via PDO failed: " . $e->getMessage());
+        }
+        
+        // Fallback to mysql command line
         $cmd = sprintf(
-            "mysql -h %s -u %s %s -e \"SELECT ROUND(SUM(data_length + index_length) / 1024 / 1024, 2) AS size FROM information_schema.TABLES WHERE table_schema = '%s';\" -s -N 2>/dev/null",
+            "mysql -h %s -u %s %s -e %s -s -N 2>/dev/null",
             escapeshellarg($dbHost),
             escapeshellarg($dbUser),
             $dbPass ? '-p' . escapeshellarg($dbPass) : '',
-            $dbName
+            escapeshellarg("SELECT ROUND(SUM(data_length + index_length) / 1024 / 1024, 2) AS size FROM information_schema.TABLES WHERE table_schema = '{$dbName}';")
         );
         
-        $size = shell_exec($cmd);
-        return floatval($size);
+        $size = trim(shell_exec($cmd));
+        return $size ? floatval($size) : 0;
     }
     
     public static function getStorageSize() {
@@ -186,6 +209,109 @@ class Config {
         
         exec($cmd, $output, $returnCode);
         return $returnCode === 0;
+    }
+    
+    /**
+     * Check if binary logging is enabled
+     */
+    public static function isBinaryLoggingEnabled() {
+        try {
+            $dbHost = self::get('db_host', 'localhost');
+            $dbUser = self::get('db_user');
+            $dbPass = self::get('db_pass');
+            $dbName = self::get('db_name');
+            
+            $dsn = "mysql:host={$dbHost};dbname={$dbName};charset=utf8mb4";
+            $pdo = new PDO($dsn, $dbUser, $dbPass, [
+                PDO::ATTR_ERRMODE => PDO::ERRMODE_EXCEPTION
+            ]);
+            
+            $stmt = $pdo->query("SHOW VARIABLES LIKE 'log_bin'");
+            $result = $stmt->fetch(PDO::FETCH_ASSOC);
+            
+            return $result && strtolower($result['Value']) === 'on';
+        } catch (Exception $e) {
+            error_log("Failed to check binary logging status: " . $e->getMessage());
+            return false;
+        }
+    }
+    
+    /**
+     * Get current binary log position
+     */
+    public static function getBinaryLogPosition() {
+        try {
+            $dbHost = self::get('db_host', 'localhost');
+            $dbUser = self::get('db_user');
+            $dbPass = self::get('db_pass');
+            $dbName = self::get('db_name');
+            
+            $dsn = "mysql:host={$dbHost};dbname={$dbName};charset=utf8mb4";
+            $pdo = new PDO($dsn, $dbUser, $dbPass, [
+                PDO::ATTR_ERRMODE => PDO::ERRMODE_EXCEPTION
+            ]);
+            
+            $stmt = $pdo->query("SHOW MASTER STATUS");
+            $result = $stmt->fetch(PDO::FETCH_ASSOC);
+            
+            if ($result) {
+                return [
+                    'file' => $result['File'],
+                    'position' => $result['Position'],
+                    'timestamp' => time()
+                ];
+            }
+        } catch (Exception $e) {
+            error_log("Failed to get binary log position: " . $e->getMessage());
+        }
+        
+        return null;
+    }
+    
+    /**
+     * Get available binary logs
+     */
+    public static function getBinaryLogs() {
+        try {
+            $dbHost = self::get('db_host', 'localhost');
+            $dbUser = self::get('db_user');
+            $dbPass = self::get('db_pass');
+            $dbName = self::get('db_name');
+            
+            $dsn = "mysql:host={$dbHost};dbname={$dbName};charset=utf8mb4";
+            $pdo = new PDO($dsn, $dbUser, $dbPass, [
+                PDO::ATTR_ERRMODE => PDO::ERRMODE_EXCEPTION
+            ]);
+            
+            $stmt = $pdo->query("SHOW BINARY LOGS");
+            return $stmt->fetchAll(PDO::FETCH_ASSOC);
+        } catch (Exception $e) {
+            error_log("Failed to get binary logs: " . $e->getMessage());
+            return [];
+        }
+    }
+    
+    /**
+     * Purge old binary logs before a specific file
+     */
+    public static function purgeBinaryLogs($beforeFile) {
+        try {
+            $dbHost = self::get('db_host', 'localhost');
+            $dbUser = self::get('db_user');
+            $dbPass = self::get('db_pass');
+            $dbName = self::get('db_name');
+            
+            $dsn = "mysql:host={$dbHost};dbname={$dbName};charset=utf8mb4";
+            $pdo = new PDO($dsn, $dbUser, $dbPass, [
+                PDO::ATTR_ERRMODE => PDO::ERRMODE_EXCEPTION
+            ]);
+            
+            $stmt = $pdo->prepare("PURGE BINARY LOGS TO ?");
+            return $stmt->execute([$beforeFile]);
+        } catch (Exception $e) {
+            error_log("Failed to purge binary logs: " . $e->getMessage());
+            return false;
+        }
     }
 }
 

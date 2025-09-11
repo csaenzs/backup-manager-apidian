@@ -205,13 +205,97 @@ else
     echo -e "${YELLOW}⚠${NC} Configuration file already exists, skipping..."
 fi
 
-# Step 6: Test database connection
+# Step 6: Test database connection and configure binary logging
 echo ""
-echo "Step 6: Testing database connection..."
+echo "Step 6: Testing database connection and configuring binary logging..."
 
-if [ ! -z "$DB_USER" ] && [ ! -z "$DB_NAME" ]; then
+if [ ! -z "$DB_USER" ] && [ ! -z "$DB_PASS" ] && [ ! -z "$DB_NAME" ]; then
     if mysql -h ${DB_HOST:-localhost} -u $DB_USER -p$DB_PASS -e "SELECT 1" $DB_NAME > /dev/null 2>&1; then
         echo -e "${GREEN}✓${NC} Database connection successful"
+        
+        # Check if binary logging is enabled
+        BINARY_LOG_STATUS=$(mysql -h ${DB_HOST:-localhost} -u $DB_USER -p$DB_PASS -e "SHOW VARIABLES LIKE 'log_bin'" -s -N 2>/dev/null | awk '{print $2}')
+        
+        if [ "$BINARY_LOG_STATUS" = "ON" ]; then
+            echo -e "${GREEN}✓${NC} Binary logging already enabled"
+        else
+            echo -e "${YELLOW}⚠${NC} Binary logging not enabled. Configuring for incremental backups..."
+            
+            # Detect MySQL configuration file location
+            MYSQL_CONFIG=""
+            for config_file in /etc/mysql/mysql.conf.d/mysqld.cnf /etc/mysql/my.cnf /etc/my.cnf; do
+                if [ -f "$config_file" ]; then
+                    MYSQL_CONFIG="$config_file"
+                    break
+                fi
+            done
+            
+            if [ ! -z "$MYSQL_CONFIG" ]; then
+                echo -e "${GREEN}✓${NC} Found MySQL config: $MYSQL_CONFIG"
+                
+                # Backup original config
+                cp "$MYSQL_CONFIG" "$MYSQL_CONFIG.backup.$(date +%Y%m%d_%H%M%S)"
+                
+                # Check if [mysqld] section exists
+                if grep -q "^\[mysqld\]" "$MYSQL_CONFIG"; then
+                    # Add binary logging configuration after [mysqld] section
+                    sed -i '/^\[mysqld\]/a\\n# Binary logging for incremental backups (added by Backup Manager)\nlog-bin = mysql-bin\nbinlog_format = ROW\nexpire_logs_days = 7\nmax_binlog_size = 100M\nserver-id = 1\n' "$MYSQL_CONFIG"
+                else
+                    # Add [mysqld] section with binary logging
+                    echo "" >> "$MYSQL_CONFIG"
+                    echo "# Binary logging configuration (added by Backup Manager)" >> "$MYSQL_CONFIG"
+                    echo "[mysqld]" >> "$MYSQL_CONFIG"
+                    echo "log-bin = mysql-bin" >> "$MYSQL_CONFIG"
+                    echo "binlog_format = ROW" >> "$MYSQL_CONFIG"
+                    echo "expire_logs_days = 7" >> "$MYSQL_CONFIG"
+                    echo "max_binlog_size = 100M" >> "$MYSQL_CONFIG"
+                    echo "server-id = 1" >> "$MYSQL_CONFIG"
+                fi
+                
+                echo -e "${GREEN}✓${NC} Binary logging configuration added"
+                echo -e "${YELLOW}⚠${NC} MySQL restart required for binary logging to take effect"
+                echo -e "${YELLOW}⚠${NC} Run: sudo systemctl restart mysql"
+                
+                # Ask if user wants to restart MySQL now
+                echo ""
+                read -p "Would you like to restart MySQL now? (y/N): " -n 1 -r
+                echo
+                if [[ $REPLY =~ ^[Yy]$ ]]; then
+                    echo "Restarting MySQL/MariaDB..."
+                    if systemctl restart mysql 2>/dev/null || systemctl restart mariadb 2>/dev/null; then
+                        echo -e "${GREEN}✓${NC} MySQL restarted successfully"
+                        sleep 3
+                        
+                        # Verify binary logging is now enabled
+                        BINARY_LOG_STATUS=$(mysql -h ${DB_HOST:-localhost} -u $DB_USER -p$DB_PASS -e "SHOW VARIABLES LIKE 'log_bin'" -s -N 2>/dev/null | awk '{print $2}')
+                        if [ "$BINARY_LOG_STATUS" = "ON" ]; then
+                            echo -e "${GREEN}✓${NC} Binary logging is now enabled!"
+                        else
+                            echo -e "${YELLOW}⚠${NC} Binary logging may require manual configuration. Check MySQL logs."
+                        fi
+                    else
+                        echo -e "${RED}✗${NC} Failed to restart MySQL. Please restart manually."
+                    fi
+                else
+                    echo -e "${YELLOW}⚠${NC} MySQL restart skipped. Remember to restart MySQL later."
+                fi
+            else
+                echo -e "${YELLOW}⚠${NC} MySQL configuration file not found. Binary logging must be configured manually."
+                echo -e "${YELLOW}⚠${NC} Add to MySQL config: log-bin=mysql-bin, binlog_format=ROW"
+            fi
+        fi
+        
+        # Test binary log functionality if enabled
+        if [ "$BINARY_LOG_STATUS" = "ON" ] || [ "$REPLY" = "y" ] || [ "$REPLY" = "Y" ]; then
+            echo ""
+            echo "Testing binary log functionality..."
+            MASTER_STATUS=$(mysql -h ${DB_HOST:-localhost} -u $DB_USER -p$DB_PASS -e "SHOW MASTER STATUS" 2>/dev/null)
+            if [ ! -z "$MASTER_STATUS" ]; then
+                echo -e "${GREEN}✓${NC} Binary logs are working correctly"
+                echo "Current binary log position:"
+                echo "$MASTER_STATUS" | head -2
+            fi
+        fi
     else
         echo -e "${YELLOW}⚠${NC} Could not connect to database. Please check credentials."
     fi
