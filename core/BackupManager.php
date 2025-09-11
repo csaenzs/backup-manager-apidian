@@ -188,7 +188,6 @@ class BackupManager {
         $this->log("Full database backup completed: $backupFile");
         
         // Get current binary log position for future incremental backups (will be saved in saveBackupRecord)
-        $this->currentBinaryLogPosition = null;
         if (Config::isBinaryLoggingEnabled()) {
             $this->currentBinaryLogPosition = Config::getBinaryLogPosition();
             if ($this->currentBinaryLogPosition) {
