@@ -8,6 +8,7 @@ class BackupManager {
     private $progressFile;
     private $logFile;
     private $startTime;
+    private $currentBinaryLogPosition;
     
     public function __construct() {
         $this->progressFile = Config::get('temp_path') . '/backup_progress.json';
@@ -795,21 +796,9 @@ class BackupManager {
      * Save binary log position for future incremental backups
      */
     private function saveBinaryLogPosition($backupId, $position) {
-        $historyFile = Config::get('backup_path') . '/history.json';
-        
-        if (file_exists($historyFile)) {
-            $history = json_decode(file_get_contents($historyFile), true) ?: [];
-            
-            // Find the current backup and add position info
-            foreach ($history as &$backup) {
-                if ($backup['id'] === $backupId) {
-                    $backup['binary_log_position'] = $position;
-                    break;
-                }
-            }
-            
-            file_put_contents($historyFile, json_encode($history, JSON_PRETTY_PRINT));
-        }
+        // Store the position to be saved later in saveBackupRecord
+        $this->currentBinaryLogPosition = $position;
+        $this->log("Saved binary log position for incremental backups: {$position['file']}:{$position['position']}");
     }
     
     /**
