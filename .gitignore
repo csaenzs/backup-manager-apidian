@@ -1,0 +1,30 @@
+# Backup Manager - Git ignore file
+
+# Local configuration
+config.local.php
+
+# Backup files
+backups/*
+!backups/.gitkeep
+
+# Log files
+logs/*
+!logs/.gitkeep
+
+# Temporary files
+temp/*
+!temp/.gitkeep
+
+# System files
+.DS_Store
+Thumbs.db
+
+# IDE files
+.vscode/
+.idea/
+*.swp
+*.swo
+
+# Runtime files
+*.pid
+*.sock
