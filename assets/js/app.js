@@ -27,25 +27,25 @@ document.addEventListener('DOMContentLoaded', function() {
  */
 function loadDashboardData() {
     console.log('🔄 Loading dashboard data...');
-    fetch('api/status.php?t=' + Date.now())
+    fetch('api/status.php?t=' + Date.now() + '&r=' + Math.random(), {
+        cache: 'no-cache',
+        headers: {
+            'Cache-Control': 'no-cache',
+            'Pragma': 'no-cache'
+        }
+    })
         .then(response => {
             console.log('📡 API Response status:', response.status);
             return response.json();
         })
         .then(data => {
-            console.log('📊 Raw API data:', data);
-            console.log('💾 DB Size (bytes):', data.db_size);
-            console.log('📁 Storage Size (bytes):', data.storage_size);
+            console.log('📊 Dashboard data loaded - DB: ' + formatSize(data.db_size) + ', Storage: ' + formatSize(data.storage_size));
             
             // Update storage size
-            const formattedStorageSize = formatSize(data.storage_size);
-            console.log('📁 Formatted Storage Size:', formattedStorageSize);
-            document.getElementById('storage-size').textContent = formattedStorageSize;
+            document.getElementById('storage-size').textContent = formatSize(data.storage_size);
             
-            // Update database size
-            const formattedDbSize = formatSize(data.db_size);
-            console.log('💾 Formatted DB Size:', formattedDbSize);
-            document.getElementById('db-size').textContent = formattedDbSize;
+            // Update database size  
+            document.getElementById('db-size').textContent = formatSize(data.db_size);
             
             // Update last backup info
             if (data.last_backup) {
@@ -192,9 +192,14 @@ function resetBackupUI() {
  * Load backup history with enhanced information
  */
 function loadHistory() {
+    console.log('📜 Loading backup history...');
     fetch('api/history.php')
-        .then(response => response.json())
+        .then(response => {
+            console.log('📡 History API response status:', response.status);
+            return response.json();
+        })
         .then(data => {
+            console.log('📊 History loaded: ' + (data.history ? data.history.length : 0) + ' backups');
             const tbody = document.getElementById('history-tbody');
             
             if (data.history && data.history.length > 0) {
@@ -257,6 +262,7 @@ function getTypeDisplay(backup) {
  * Show detailed backup information in modal
  */
 function showBackupDetails(backupId) {
+    console.log('ℹ️ Show backup details clicked:', backupId);
     fetch(`api/history.php?id=${backupId}`)
         .then(response => response.json())
         .then(data => {
@@ -377,6 +383,7 @@ function filterHistory() {
  * Download backup
  */
 function downloadBackup(backupId) {
+    console.log('🔽 Downloading backup:', backupId);
     window.location.href = `api/download.php?id=${backupId}`;
 }
 
@@ -384,6 +391,8 @@ function downloadBackup(backupId) {
  * Restore backup
  */
 function restoreBackup(backupId) {
+    console.log('🔄 Restoring backup:', backupId);
+    
     if (confirm('⚠️ ADVERTENCIA: Restaurar un backup sobrescribirá los datos actuales. ¿Estás seguro?')) {
         if (confirm('Esta es una operación peligrosa. ¿Realmente deseas continuar?')) {
             fetch('api/restore.php', {
@@ -393,16 +402,21 @@ function restoreBackup(backupId) {
                 },
                 body: JSON.stringify({ id: backupId })
             })
-            .then(response => response.json())
+            .then(response => {
+                console.log('🔄 Restore API response status:', response.status);
+                return response.json();
+            })
             .then(data => {
                 if (data.status === 'ready') {
+                    console.log('🔄 Restore instructions generated');
                     alert('Backup listo para restaurar. Por seguridad, debes ejecutar el proceso manualmente:\n\n' + data.instructions);
                 } else {
+                    console.error('🔄 Restore failed:', data.message);
                     alert('Error: ' + data.message);
                 }
             })
             .catch(error => {
-                console.error('Error restoring backup:', error);
+                console.error('🔄 Restore request failed:', error);
                 alert('Error al restaurar backup');
             });
         }
@@ -413,6 +427,8 @@ function restoreBackup(backupId) {
  * Delete backup
  */
 function deleteBackup(backupId) {
+    console.log('🗑️ Deleting backup:', backupId);
+    
     if (confirm('¿Eliminar este backup? Esta acción no se puede deshacer.')) {
         fetch('api/delete.php', {
             method: 'POST',
@@ -421,17 +437,22 @@ function deleteBackup(backupId) {
             },
             body: JSON.stringify({ id: backupId })
         })
-        .then(response => response.json())
+        .then(response => {
+            console.log('🗑️ Delete API response status:', response.status);
+            return response.json();
+        })
         .then(data => {
             if (data.success) {
+                console.log('🗑️ Backup deleted successfully');
                 loadHistory();
                 loadDashboardData();
             } else {
+                console.error('🗑️ Delete failed:', data.message);
                 alert('Error al eliminar backup: ' + data.message);
             }
         })
         .catch(error => {
-            console.error('Error deleting backup:', error);
+            console.error('🗑️ Delete request failed:', error);
             alert('Error al eliminar backup');
         });
     }
@@ -548,19 +569,34 @@ function formatDate(dateString) {
     
     const date = new Date(dateString);
     const now = new Date();
-    const diff = now - date;
     
-    // If less than 24 hours ago, show relative time
-    if (diff < 86400000) {
-        const hours = Math.floor(diff / 3600000);
-        if (hours < 1) {
-            const minutes = Math.floor(diff / 60000);
-            return `Hace ${minutes} minutos`;
-        }
-        return `Hace ${hours} horas`;
+    // Check if date is valid
+    if (isNaN(date.getTime())) {
+        return dateString; // Return original string if invalid
     }
     
-    // Otherwise show date
+    const diff = now - date;
+    const absDiff = Math.abs(diff);
+    
+    // If less than 24 hours ago (or in future), show relative time
+    if (absDiff < 86400000) {
+        const hours = Math.floor(absDiff / 3600000);
+        if (hours < 1) {
+            const minutes = Math.floor(absDiff / 60000);
+            if (diff >= 0) {
+                return `Hace ${minutes} minutos`;
+            } else {
+                return `En ${minutes} minutos`;
+            }
+        }
+        if (diff >= 0) {
+            return `Hace ${hours} horas`;
+        } else {
+            return `En ${hours} horas`;
+        }
+    }
+    
+    // Otherwise show formatted date
     return date.toLocaleDateString('es-ES', {
         year: 'numeric',
         month: 'short',
@@ -571,14 +607,18 @@ function formatDate(dateString) {
 }
 
 function formatDuration(seconds) {
-    if (!seconds) return '-';
+    if (!seconds || seconds <= 0) return '-';
     
-    if (seconds < 60) return seconds + ' seg';
+    if (seconds < 60) return Math.round(seconds) + ' seg';
     if (seconds < 3600) return Math.floor(seconds / 60) + ' min';
     
     const hours = Math.floor(seconds / 3600);
     const minutes = Math.floor((seconds % 3600) / 60);
-    return `${hours}h ${minutes}m`;
+    if (minutes > 0) {
+        return `${hours}h ${minutes}m`;
+    } else {
+        return `${hours}h`;
+    }
 }
 
 function translateType(type) {

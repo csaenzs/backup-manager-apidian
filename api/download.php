@@ -17,6 +17,9 @@ if (empty($backupId)) {
     die('Invalid backup ID');
 }
 
+// Log download attempt
+error_log("Download attempt for backup ID: $backupId");
+
 // Get backup info from history
 $backupManager = new BackupManager();
 $history = $backupManager->getHistory();
@@ -31,7 +34,24 @@ foreach ($history as $backup) {
 
 if (!$backupInfo) {
     http_response_code(404);
+    error_log("Backup not found in history: $backupId");
     die('Backup not found');
+}
+
+error_log("Backup found: " . json_encode($backupInfo));
+
+// Check if all files exist
+$missingFiles = [];
+foreach ($backupInfo['files'] as $file) {
+    if (!file_exists($file)) {
+        $missingFiles[] = $file;
+    }
+}
+
+if (!empty($missingFiles)) {
+    http_response_code(404);
+    error_log("Missing backup files for $backupId: " . implode(', ', $missingFiles));
+    die('Backup files not found: ' . implode(', ', array_map('basename', $missingFiles)));
 }
 
 // For multiple files, create a tar archive

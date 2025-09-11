@@ -40,10 +40,18 @@ $newHistory = [];
 foreach ($history as $backup) {
     if ($backup['id'] === $backupId) {
         $found = true;
+        error_log("DELETE: Found backup $backupId, deleting files...");
+        
         // Delete the actual files
         foreach ($backup['files'] as $file) {
             if (file_exists($file)) {
-                unlink($file);
+                if (unlink($file)) {
+                    error_log("DELETE: Successfully deleted file: $file");
+                } else {
+                    error_log("DELETE: Failed to delete file: $file");
+                }
+            } else {
+                error_log("DELETE: File not found: $file");
             }
         }
     } else {
@@ -58,7 +66,13 @@ if (!$found) {
 }
 
 // Save updated history
-file_put_contents($historyFile, json_encode($newHistory, JSON_PRETTY_PRINT));
+if (file_put_contents($historyFile, json_encode($newHistory, JSON_PRETTY_PRINT)) === false) {
+    error_log("DELETE: Failed to update history file");
+    echo json_encode(['success' => false, 'message' => 'Failed to update history']);
+    exit;
+}
+
+error_log("DELETE: Successfully deleted backup $backupId and updated history");
 
 header('Content-Type: application/json');
 echo json_encode(['success' => true, 'message' => 'Backup deleted successfully']);
