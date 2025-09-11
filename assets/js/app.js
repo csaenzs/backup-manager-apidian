@@ -166,7 +166,7 @@ function resetBackupUI() {
 }
 
 /**
- * Load backup history
+ * Load backup history with enhanced information
  */
 function loadHistory() {
     fetch('api/history.php')
@@ -175,20 +175,29 @@ function loadHistory() {
             const tbody = document.getElementById('history-tbody');
             
             if (data.history && data.history.length > 0) {
-                tbody.innerHTML = data.history.map(backup => `
-                    <tr>
-                        <td>${formatDate(backup.date)}</td>
-                        <td>${translateType(backup.type)}</td>
-                        <td>${formatSize(backup.size)}</td>
-                        <td>${formatDuration(backup.duration)}</td>
-                        <td><span class="status-badge status-${backup.status}">${translateStatus(backup.status)}</span></td>
-                        <td>
-                            <button onclick="downloadBackup('${backup.id}')" class="action-btn action-download" title="Descargar">⬇</button>
-                            <button onclick="restoreBackup('${backup.id}')" class="action-btn action-restore" title="Restaurar">↻</button>
-                            <button onclick="deleteBackup('${backup.id}')" class="action-btn action-delete" title="Eliminar">🗑</button>
-                        </td>
-                    </tr>
-                `).join('');
+                tbody.innerHTML = data.history.map(backup => {
+                    // Enhanced type display with strategy
+                    const typeDisplay = getTypeDisplay(backup);
+                    const sizeDisplay = backup.size_formatted || formatSize(backup.size);
+                    const incrementalBadge = backup.strategy === 'incremental' ? 
+                        '<span class="incremental-badge" title="Backup incremental">📊</span>' : '';
+                    
+                    return `
+                        <tr onclick="showBackupDetails('${backup.id}')" style="cursor: pointer;" title="Click para ver detalles">
+                            <td>${formatDate(backup.date)}</td>
+                            <td>${typeDisplay}${incrementalBadge}</td>
+                            <td>${sizeDisplay}</td>
+                            <td>${formatDuration(backup.duration)}</td>
+                            <td><span class="status-badge status-${backup.status}">${translateStatus(backup.status)}</span></td>
+                            <td onclick="event.stopPropagation();">
+                                <button onclick="downloadBackup('${backup.id}')" class="action-btn action-download" title="Descargar">⬇</button>
+                                <button onclick="restoreBackup('${backup.id}')" class="action-btn action-restore" title="Restaurar">↻</button>
+                                <button onclick="deleteBackup('${backup.id}')" class="action-btn action-delete" title="Eliminar">🗑</button>
+                                <button onclick="showBackupDetails('${backup.id}')" class="action-btn action-info" title="Detalles">ℹ️</button>
+                            </td>
+                        </tr>
+                    `;
+                }).join('');
             } else {
                 tbody.innerHTML = '<tr><td colspan="6" class="loading">No hay backups disponibles</td></tr>';
             }
@@ -198,6 +207,125 @@ function loadHistory() {
             document.getElementById('history-tbody').innerHTML = 
                 '<tr><td colspan="6" class="loading">Error al cargar historial</td></tr>';
         });
+}
+
+/**
+ * Get enhanced type display
+ */
+function getTypeDisplay(backup) {
+    const baseType = translateType(backup.type);
+    
+    if (backup.strategy) {
+        switch (backup.strategy) {
+            case 'incremental':
+                return `${baseType} <small>(Incremental)</small>`;
+            case 'mixed':
+                return `${baseType} <small>(Mixto)</small>`;
+            case 'full':
+            default:
+                return `${baseType} <small>(Completo)</small>`;
+        }
+    }
+    
+    return baseType;
+}
+
+/**
+ * Show detailed backup information in modal
+ */
+function showBackupDetails(backupId) {
+    fetch(`api/history.php?id=${backupId}`)
+        .then(response => response.json())
+        .then(data => {
+            if (data.backup) {
+                showBackupModal(data.backup);
+            } else {
+                alert('No se pudo cargar la información del backup');
+            }
+        })
+        .catch(error => {
+            console.error('Error loading backup details:', error);
+            alert('Error al cargar detalles del backup');
+        });
+}
+
+/**
+ * Show backup details in a modal
+ */
+function showBackupModal(backup) {
+    const modal = document.createElement('div');
+    modal.className = 'modal-overlay';
+    modal.innerHTML = `
+        <div class="modal-content">
+            <div class="modal-header">
+                <h3>📋 Detalles del Backup</h3>
+                <button class="modal-close" onclick="this.closest('.modal-overlay').remove()">×</button>
+            </div>
+            <div class="modal-body">
+                <div class="backup-info">
+                    <div class="info-row">
+                        <strong>ID:</strong> ${backup.id}
+                    </div>
+                    <div class="info-row">
+                        <strong>Fecha:</strong> ${formatDate(backup.date)}
+                    </div>
+                    <div class="info-row">
+                        <strong>Tipo:</strong> ${getTypeDisplay(backup)}
+                    </div>
+                    <div class="info-row">
+                        <strong>Estrategia:</strong> ${translateStrategy(backup.strategy)}
+                    </div>
+                    <div class="info-row">
+                        <strong>Tamaño Total:</strong> ${backup.size_formatted || formatSize(backup.size)}
+                    </div>
+                    <div class="info-row">
+                        <strong>Duración:</strong> ${formatDuration(backup.duration)}
+                    </div>
+                    <div class="info-row">
+                        <strong>Servidor:</strong> ${backup.server || 'N/A'}
+                    </div>
+                </div>
+                
+                ${backup.details ? `
+                    <h4>📁 Archivos del Backup</h4>
+                    <div class="file-details">
+                        ${backup.details.map(detail => `
+                            <div class="file-item">
+                                <div class="file-type">${translateFileType(detail.type)} ${detail.incremental ? '(Incremental)' : '(Completo)'}</div>
+                                <div class="file-name">${detail.file.split('/').pop()}</div>
+                                <div class="file-size">${formatSize(detail.size)} ${detail.compressed ? '(Comprimido)' : ''}</div>
+                            </div>
+                        `).join('')}
+                    </div>
+                ` : ''}
+                
+                ${backup.incremental_info && backup.incremental_info.space_saved > 0 ? `
+                    <h4>📊 Información Incremental</h4>
+                    <div class="incremental-info">
+                        <div class="info-row">
+                            <strong>Espacio Ahorrado:</strong> ${formatSize(backup.incremental_info.space_saved)}
+                        </div>
+                        <div class="info-row">
+                            <strong>Archivos Transferidos:</strong> ${backup.incremental_info.transferred_files || 'N/A'}
+                        </div>
+                    </div>
+                ` : ''}
+            </div>
+            <div class="modal-footer">
+                <button class="btn btn-primary" onclick="downloadBackup('${backup.id}')">📥 Descargar</button>
+                <button class="btn btn-secondary" onclick="this.closest('.modal-overlay').remove()">Cerrar</button>
+            </div>
+        </div>
+    `;
+    
+    document.body.appendChild(modal);
+    
+    // Close on backdrop click
+    modal.addEventListener('click', (e) => {
+        if (e.target === modal) {
+            modal.remove();
+        }
+    });
 }
 
 /**
@@ -446,4 +574,22 @@ function translateStatus(status) {
         'running': 'En progreso'
     };
     return statuses[status] || status;
+}
+
+function translateStrategy(strategy) {
+    const strategies = {
+        'full': 'Completo',
+        'incremental': 'Incremental',
+        'mixed': 'Mixto'
+    };
+    return strategies[strategy] || strategy;
+}
+
+function translateFileType(type) {
+    const types = {
+        'database': '🗄️ Base de datos',
+        'storage': '📁 Storage',
+        'unknown': '❓ Desconocido'
+    };
+    return types[type] || type;
 }

@@ -525,3 +525,171 @@ header h1 {
     0% { transform: rotate(0deg); }
     100% { transform: rotate(360deg); }
 }
+
+/* Modal Styles */
+.modal-overlay {
+    position: fixed;
+    top: 0;
+    left: 0;
+    width: 100%;
+    height: 100%;
+    background: rgba(0, 0, 0, 0.5);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    z-index: 1000;
+    animation: fadeIn 0.3s ease;
+}
+
+.modal-content {
+    background: var(--card-bg);
+    border-radius: 10px;
+    max-width: 600px;
+    width: 90%;
+    max-height: 80vh;
+    overflow: hidden;
+    box-shadow: var(--shadow-lg);
+    animation: slideIn 0.3s ease;
+}
+
+.modal-header {
+    padding: 20px 30px;
+    border-bottom: 1px solid var(--border-color);
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    background: var(--light-bg);
+}
+
+.modal-header h3 {
+    margin: 0;
+    color: var(--text-primary);
+}
+
+.modal-close {
+    background: none;
+    border: none;
+    font-size: 24px;
+    cursor: pointer;
+    color: var(--text-secondary);
+    width: 30px;
+    height: 30px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    border-radius: 50%;
+    transition: background 0.3s;
+}
+
+.modal-close:hover {
+    background: var(--border-color);
+}
+
+.modal-body {
+    padding: 30px;
+    max-height: 60vh;
+    overflow-y: auto;
+}
+
+.modal-footer {
+    padding: 20px 30px;
+    border-top: 1px solid var(--border-color);
+    background: var(--light-bg);
+    display: flex;
+    gap: 10px;
+    justify-content: flex-end;
+}
+
+/* Backup Info Styles */
+.backup-info {
+    margin-bottom: 25px;
+}
+
+.info-row {
+    display: flex;
+    padding: 8px 0;
+    border-bottom: 1px solid var(--border-color);
+}
+
+.info-row strong {
+    min-width: 120px;
+    color: var(--text-secondary);
+    font-size: 14px;
+}
+
+.file-details {
+    margin-top: 15px;
+}
+
+.file-item {
+    background: var(--light-bg);
+    padding: 15px;
+    border-radius: 8px;
+    margin-bottom: 10px;
+    border-left: 4px solid var(--primary-color);
+}
+
+.file-type {
+    font-weight: bold;
+    color: var(--text-primary);
+    margin-bottom: 5px;
+}
+
+.file-name {
+    font-family: monospace;
+    color: var(--text-secondary);
+    font-size: 13px;
+    margin-bottom: 5px;
+}
+
+.file-size {
+    color: var(--success-color);
+    font-weight: 500;
+}
+
+.incremental-info {
+    background: linear-gradient(135deg, #e3f2fd, #f3e5f5);
+    padding: 15px;
+    border-radius: 8px;
+    margin-top: 15px;
+}
+
+/* Incremental Badge */
+.incremental-badge {
+    display: inline-block;
+    margin-left: 5px;
+    font-size: 12px;
+    opacity: 0.8;
+}
+
+.action-info {
+    background: var(--primary-color);
+    color: white;
+}
+
+/* Enhanced History Table */
+.history-table tbody tr {
+    transition: background-color 0.3s;
+}
+
+.history-table tbody tr:hover {
+    background: #f8f9fa;
+    transform: translateY(-1px);
+}
+
+/* Animations */
+@keyframes fadeIn {
+    from { opacity: 0; }
+    to { opacity: 1; }
+}
+
+@keyframes slideIn {
+    from {
+        opacity: 0;
+        transform: translateY(-20px) scale(0.95);
+    }
+    to {
+        opacity: 1;
+        transform: translateY(0) scale(1);
+    }
+}
