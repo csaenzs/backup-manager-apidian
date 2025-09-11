@@ -14,20 +14,38 @@ document.addEventListener('DOMContentLoaded', function() {
     
     // Refresh data every 30 seconds
     setInterval(loadDashboardData, 30000);
+    
+    // Password strength checker
+    const newPasswordInput = document.getElementById('new-password');
+    if (newPasswordInput) {
+        newPasswordInput.addEventListener('input', checkPasswordStrength);
+    }
 });
 
 /**
  * Load dashboard data
  */
 function loadDashboardData() {
-    fetch('api/status.php')
-        .then(response => response.json())
+    console.log('🔄 Loading dashboard data...');
+    fetch('api/status.php?t=' + Date.now())
+        .then(response => {
+            console.log('📡 API Response status:', response.status);
+            return response.json();
+        })
         .then(data => {
+            console.log('📊 Raw API data:', data);
+            console.log('💾 DB Size (bytes):', data.db_size);
+            console.log('📁 Storage Size (bytes):', data.storage_size);
+            
             // Update storage size
-            document.getElementById('storage-size').textContent = formatSize(data.storage_size);
+            const formattedStorageSize = formatSize(data.storage_size);
+            console.log('📁 Formatted Storage Size:', formattedStorageSize);
+            document.getElementById('storage-size').textContent = formattedStorageSize;
             
             // Update database size
-            document.getElementById('db-size').textContent = formatSize(data.db_size);
+            const formattedDbSize = formatSize(data.db_size);
+            console.log('💾 Formatted DB Size:', formattedDbSize);
+            document.getElementById('db-size').textContent = formattedDbSize;
             
             // Update last backup info
             if (data.last_backup) {
@@ -44,7 +62,12 @@ function loadDashboardData() {
             }
         })
         .catch(error => {
-            console.error('Error loading dashboard data:', error);
+            console.error('❌ Error loading dashboard data:', error);
+            console.error('❌ Error details:', error.message, error.stack);
+            
+            // Show error in UI
+            document.getElementById('storage-size').textContent = 'Error cargando datos';
+            document.getElementById('db-size').textContent = 'Error cargando datos';
         });
 }
 
@@ -592,4 +615,123 @@ function translateFileType(type) {
         'unknown': '❓ Desconocido'
     };
     return types[type] || type;
+}
+
+/**
+ * Change password functionality
+ */
+function changePassword() {
+    const currentPassword = document.getElementById('current-password').value;
+    const newPassword = document.getElementById('new-password').value;
+    const confirmPassword = document.getElementById('confirm-password').value;
+    
+    // Validation
+    if (!currentPassword) {
+        alert('Por favor ingresa la contraseña actual');
+        return;
+    }
+    
+    if (!newPassword || newPassword.length < 8) {
+        alert('La nueva contraseña debe tener al menos 8 caracteres');
+        return;
+    }
+    
+    if (newPassword !== confirmPassword) {
+        alert('Las contraseñas no coinciden');
+        return;
+    }
+    
+    if (newPassword === currentPassword) {
+        alert('La nueva contraseña debe ser diferente a la actual');
+        return;
+    }
+    
+    // Send password change request
+    fetch('api/change-password.php', {
+        method: 'POST',
+        headers: {
+            'Content-Type': 'application/json'
+        },
+        body: JSON.stringify({
+            current_password: currentPassword,
+            new_password: newPassword
+        })
+    })
+    .then(response => response.json())
+    .then(data => {
+        if (data.success) {
+            alert('Contraseña cambiada exitosamente. Deberás iniciar sesión nuevamente.');
+            // Clear form
+            document.getElementById('current-password').value = '';
+            document.getElementById('new-password').value = '';
+            document.getElementById('confirm-password').value = '';
+            // Redirect to login
+            window.location.href = 'index.php?logout=1';
+        } else {
+            alert('Error al cambiar contraseña: ' + data.message);
+        }
+    })
+    .catch(error => {
+        console.error('Error changing password:', error);
+        alert('Error al cambiar contraseña');
+    });
+}
+
+/**
+ * Check password strength
+ */
+function checkPasswordStrength() {
+    const password = document.getElementById('new-password').value;
+    const strengthBar = document.getElementById('strength-fill');
+    const strengthText = document.getElementById('strength-text');
+    
+    let score = 0;
+    let feedback = [];
+    
+    // Length check
+    if (password.length >= 8) score++;
+    if (password.length >= 12) score++;
+    else if (password.length < 8) feedback.push('al menos 8 caracteres');
+    
+    // Character variety checks
+    if (/[a-z]/.test(password)) score++;
+    else feedback.push('letras minúsculas');
+    
+    if (/[A-Z]/.test(password)) score++;
+    else feedback.push('letras mayúsculas');
+    
+    if (/[0-9]/.test(password)) score++;
+    else feedback.push('números');
+    
+    if (/[^A-Za-z0-9]/.test(password)) score++;
+    else feedback.push('símbolos especiales');
+    
+    // Update UI
+    const percentage = (score / 6) * 100;
+    strengthBar.style.width = percentage + '%';
+    
+    let strengthLevel, color;
+    if (score < 2) {
+        strengthLevel = 'Muy débil';
+        color = '#ff4444';
+    } else if (score < 3) {
+        strengthLevel = 'Débil';
+        color = '#ff8800';
+    } else if (score < 4) {
+        strengthLevel = 'Regular';
+        color = '#ffaa00';
+    } else if (score < 5) {
+        strengthLevel = 'Buena';
+        color = '#88cc00';
+    } else {
+        strengthLevel = 'Muy fuerte';
+        color = '#00aa00';
+    }
+    
+    strengthBar.style.backgroundColor = color;
+    strengthText.textContent = strengthLevel;
+    
+    if (feedback.length > 0 && password.length > 0) {
+        strengthText.textContent += ' (falta: ' + feedback.join(', ') + ')';
+    }
 }

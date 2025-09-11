@@ -526,6 +526,48 @@ header h1 {
     100% { transform: rotate(360deg); }
 }
 
+/* Security Settings */
+.security-form {
+    display: grid;
+    gap: 20px;
+    max-width: 500px;
+}
+
+.password-strength {
+    margin-top: 10px;
+}
+
+.strength-bar {
+    width: 100%;
+    height: 8px;
+    background: var(--border-color);
+    border-radius: 4px;
+    overflow: hidden;
+    margin-bottom: 5px;
+}
+
+.strength-fill {
+    height: 100%;
+    width: 0%;
+    transition: all 0.3s ease;
+    background: #ff4444;
+}
+
+.strength-text {
+    font-size: 12px;
+    color: var(--text-secondary);
+}
+
+.security-note {
+    background: #fff3cd;
+    border: 1px solid #ffeaa7;
+    padding: 15px;
+    border-radius: 8px;
+    margin-top: 20px;
+    color: #856404;
+    font-size: 14px;
+}
+
 /* Modal Styles */
 .modal-overlay {
     position: fixed;

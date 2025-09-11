@@ -145,7 +145,7 @@ class Config {
         
         // Try direct PDO connection first for accuracy
         try {
-            $dsn = "mysql:host={$dbHost};dbname={$dbName};charset=utf8mb4";
+            $dsn = self::getDSN($dbHost, $dbName);
             $pdo = new PDO($dsn, $dbUser, $dbPass, [
                 PDO::ATTR_ERRMODE => PDO::ERRMODE_EXCEPTION
             ]);
@@ -166,13 +166,22 @@ class Config {
         }
         
         // Fallback to mysql command line
-        $cmd = sprintf(
-            "mysql -h %s -u %s %s -e %s -s -N 2>/dev/null",
-            escapeshellarg($dbHost),
-            escapeshellarg($dbUser),
-            $dbPass ? '-p' . escapeshellarg($dbPass) : '',
-            escapeshellarg("SELECT ROUND(SUM(data_length + index_length) / 1024 / 1024, 2) AS size FROM information_schema.TABLES WHERE table_schema = '{$dbName}';")
-        );
+        if ($dbHost === 'localhost') {
+            $cmd = sprintf(
+                "mysql --socket=/var/run/mysqld/mysqld.sock -u %s %s -e %s -s -N 2>/dev/null",
+                escapeshellarg($dbUser),
+                $dbPass ? '-p' . escapeshellarg($dbPass) : '',
+                escapeshellarg("SELECT ROUND(SUM(data_length + index_length) / 1024 / 1024, 2) AS size FROM information_schema.TABLES WHERE table_schema = '{$dbName}';")
+            );
+        } else {
+            $cmd = sprintf(
+                "mysql -h %s -u %s %s -e %s -s -N 2>/dev/null",
+                escapeshellarg($dbHost),
+                escapeshellarg($dbUser),
+                $dbPass ? '-p' . escapeshellarg($dbPass) : '',
+                escapeshellarg("SELECT ROUND(SUM(data_length + index_length) / 1024 / 1024, 2) AS size FROM information_schema.TABLES WHERE table_schema = '{$dbName}';")
+            );
+        }
         
         $size = trim(shell_exec($cmd));
         return $size ? floatval($size) : 0;
@@ -199,18 +208,39 @@ class Config {
             return false;
         }
         
-        $cmd = sprintf(
-            "mysql -h %s -u %s %s -e 'SELECT 1' %s 2>&1",
-            escapeshellarg($dbHost),
-            escapeshellarg($dbUser),
-            $dbPass ? '-p' . escapeshellarg($dbPass) : '',
-            escapeshellarg($dbName)
-        );
+        // Use socket connection for localhost
+        if ($dbHost === 'localhost') {
+            $cmd = sprintf(
+                "mysql --socket=/var/run/mysqld/mysqld.sock -u %s %s -e 'SELECT 1' %s 2>&1",
+                escapeshellarg($dbUser),
+                $dbPass ? '-p' . escapeshellarg($dbPass) : '',
+                escapeshellarg($dbName)
+            );
+        } else {
+            $cmd = sprintf(
+                "mysql -h %s -u %s %s -e 'SELECT 1' %s 2>&1",
+                escapeshellarg($dbHost),
+                escapeshellarg($dbUser),
+                $dbPass ? '-p' . escapeshellarg($dbPass) : '',
+                escapeshellarg($dbName)
+            );
+        }
         
         exec($cmd, $output, $returnCode);
         return $returnCode === 0;
     }
     
+    /**
+     * Generate correct DSN for PDO connection
+     */
+    private static function getDSN($dbHost, $dbName) {
+        if ($dbHost === 'localhost') {
+            return "mysql:unix_socket=/var/run/mysqld/mysqld.sock;dbname={$dbName};charset=utf8mb4";
+        } else {
+            return "mysql:host={$dbHost};dbname={$dbName};charset=utf8mb4";
+        }
+    }
+
     /**
      * Check if binary logging is enabled
      */
@@ -221,7 +251,7 @@ class Config {
             $dbPass = self::get('db_pass');
             $dbName = self::get('db_name');
             
-            $dsn = "mysql:host={$dbHost};dbname={$dbName};charset=utf8mb4";
+            $dsn = self::getDSN($dbHost, $dbName);
             $pdo = new PDO($dsn, $dbUser, $dbPass, [
                 PDO::ATTR_ERRMODE => PDO::ERRMODE_EXCEPTION
             ]);
@@ -246,7 +276,7 @@ class Config {
             $dbPass = self::get('db_pass');
             $dbName = self::get('db_name');
             
-            $dsn = "mysql:host={$dbHost};dbname={$dbName};charset=utf8mb4";
+            $dsn = self::getDSN($dbHost, $dbName);
             $pdo = new PDO($dsn, $dbUser, $dbPass, [
                 PDO::ATTR_ERRMODE => PDO::ERRMODE_EXCEPTION
             ]);
@@ -278,7 +308,7 @@ class Config {
             $dbPass = self::get('db_pass');
             $dbName = self::get('db_name');
             
-            $dsn = "mysql:host={$dbHost};dbname={$dbName};charset=utf8mb4";
+            $dsn = self::getDSN($dbHost, $dbName);
             $pdo = new PDO($dsn, $dbUser, $dbPass, [
                 PDO::ATTR_ERRMODE => PDO::ERRMODE_EXCEPTION
             ]);
@@ -301,7 +331,7 @@ class Config {
             $dbPass = self::get('db_pass');
             $dbName = self::get('db_name');
             
-            $dsn = "mysql:host={$dbHost};dbname={$dbName};charset=utf8mb4";
+            $dsn = self::getDSN($dbHost, $dbName);
             $pdo = new PDO($dsn, $dbUser, $dbPass, [
                 PDO::ATTR_ERRMODE => PDO::ERRMODE_EXCEPTION
             ]);

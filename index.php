@@ -3,6 +3,13 @@ session_start();
 require_once __DIR__ . '/core/config.php';
 require_once __DIR__ . '/core/auth.php';
 
+// Handle logout
+if (isset($_GET['logout'])) {
+    session_destroy();
+    header('Location: index.php');
+    exit;
+}
+
 // Simple authentication check
 if (!isset($_SESSION['authenticated']) && !isset($_POST['password'])) {
     include __DIR__ . '/views/login.php';
@@ -29,7 +36,7 @@ if (isset($_POST['password'])) {
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Backup Manager - Panel de Control</title>
-    <link rel="stylesheet" href="assets/css/style.css">
+    <link rel="stylesheet" href="assets/css/style.css?v=<?php echo filemtime(__DIR__ . '/assets/css/style.css'); ?>">
 </head>
 <body>
     <div class="container">
@@ -170,9 +177,36 @@ if (isset($_POST['password'])) {
                 </div>
                 <button onclick="saveSettings()" class="btn btn-primary">Guardar Configuración</button>
             </div>
+
+            <!-- Security Settings -->
+            <div class="settings-section">
+                <h2>🔒 Configuración de Seguridad</h2>
+                <div class="security-form">
+                    <div class="setting-item">
+                        <label>Contraseña actual:</label>
+                        <input type="password" id="current-password" placeholder="Contraseña actual">
+                    </div>
+                    <div class="setting-item">
+                        <label>Nueva contraseña:</label>
+                        <input type="password" id="new-password" placeholder="Nueva contraseña (mínimo 8 caracteres)">
+                    </div>
+                    <div class="setting-item">
+                        <label>Confirmar nueva contraseña:</label>
+                        <input type="password" id="confirm-password" placeholder="Confirmar nueva contraseña">
+                    </div>
+                    <div class="password-strength">
+                        <div class="strength-bar" id="strength-bar">
+                            <div class="strength-fill" id="strength-fill"></div>
+                        </div>
+                        <span class="strength-text" id="strength-text">Fortaleza de la contraseña</span>
+                    </div>
+                </div>
+                <button onclick="changePassword()" class="btn btn-primary">Cambiar Contraseña</button>
+                <p class="security-note">⚠️ <strong>Importante:</strong> La contraseña por defecto es "admin123". Es altamente recomendable cambiarla.</p>
+            </div>
         </div>
     </div>
 
-    <script src="assets/js/app.js"></script>
+    <script src="assets/js/app.js?v=<?php echo filemtime(__DIR__ . '/assets/js/app.js'); ?>"></script>
 </body>
 </html>
