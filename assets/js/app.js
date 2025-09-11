@@ -49,7 +49,7 @@ function loadDashboardData() {
             
             // Update last backup info
             if (data.last_backup) {
-                document.getElementById('last-backup').textContent = formatDate(data.last_backup.date);
+                document.getElementById('last-backup').innerHTML = formatDate(data.last_backup.date);
                 document.getElementById('last-backup').className = 'last-backup';
             } else {
                 document.getElementById('last-backup').textContent = 'No hay backups';
@@ -578,32 +578,46 @@ function formatDate(dateString) {
     const diff = now - date;
     const absDiff = Math.abs(diff);
     
-    // If less than 24 hours ago (or in future), show relative time
+    // Format the full date and time for display
+    const fullFormat = date.toLocaleString('es-ES', {
+        year: 'numeric',
+        month: '2-digit',
+        day: '2-digit',
+        hour: '2-digit',
+        minute: '2-digit',
+        second: '2-digit',
+        hour12: false
+    });
+    
+    // If less than 24 hours ago, show relative time with full date in tooltip
     if (absDiff < 86400000) {
         const hours = Math.floor(absDiff / 3600000);
+        let relativeTime;
+        
         if (hours < 1) {
             const minutes = Math.floor(absDiff / 60000);
-            if (diff >= 0) {
-                return `Hace ${minutes} minutos`;
+            if (minutes < 1) {
+                relativeTime = diff >= 0 ? 'Hace unos segundos' : 'En unos segundos';
             } else {
-                return `En ${minutes} minutos`;
+                relativeTime = diff >= 0 ? `Hace ${minutes} min` : `En ${minutes} min`;
             }
-        }
-        if (diff >= 0) {
-            return `Hace ${hours} horas`;
         } else {
-            return `En ${hours} horas`;
+            relativeTime = diff >= 0 ? `Hace ${hours}h` : `En ${hours}h`;
         }
+        
+        return `<span title="${fullFormat}" style="cursor: help;">${relativeTime}</span>`;
     }
     
-    // Otherwise show formatted date
-    return date.toLocaleDateString('es-ES', {
+    // For older dates, show formatted date and time with full date in tooltip
+    const shortFormat = date.toLocaleDateString('es-ES', {
         year: 'numeric',
         month: 'short',
         day: 'numeric',
         hour: '2-digit',
         minute: '2-digit'
     });
+    
+    return `<span title="${fullFormat}" style="cursor: help;">${shortFormat}</span>`;
 }
 
 function formatDuration(seconds) {

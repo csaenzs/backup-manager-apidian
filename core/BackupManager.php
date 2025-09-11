@@ -862,7 +862,7 @@ class BackupManager {
     }
     
     /**
-     * Get backup history
+     * Get backup history ordered by date (newest first)
      */
     public function getHistory($limit = 50) {
         $historyFile = Config::get('backup_path') . '/history.json';
@@ -872,6 +872,14 @@ class BackupManager {
         }
         
         $history = json_decode(file_get_contents($historyFile), true) ?: [];
+        
+        // Sort by date in descending order (newest first)
+        usort($history, function($a, $b) {
+            $dateA = isset($a['date']) ? strtotime($a['date']) : 0;
+            $dateB = isset($b['date']) ? strtotime($b['date']) : 0;
+            return $dateB - $dateA; // Descending order
+        });
+        
         return array_slice($history, 0, $limit);
     }
     
