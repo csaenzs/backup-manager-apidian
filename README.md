@@ -23,15 +23,31 @@ Sistema de gestión de backups en caliente para APIs Laravel/PHP con interfaz we
 
 ## 🚀 Instalación Rápida
 
+### Instalación Automática desde GitHub (Recomendada)
+
 ```bash
-# Ejecutar como root o con sudo
-sudo /var/www/html/backup-manager/install.sh
+# Instalación en un solo comando
+curl -sSL https://raw.githubusercontent.com/csaenzs/backup-manager-apidian/master/install.sh | sudo bash
 ```
 
-El script detectará automáticamente:
-- Ubicación de tu API
-- Configuración de base de datos
-- Rutas de storage
+**El script automáticamente:**
+- ✅ Clona el repositorio desde GitHub
+- ✅ Detecta ubicación de tu API Laravel
+- ✅ Lee configuración de base de datos del archivo .env
+- ✅ Configura Apache en el puerto adecuado
+- ✅ Instala todas las dependencias necesarias
+- ✅ Crea directorios con permisos correctos
+- ✅ Verifica la conexión a MySQL
+
+**Solo necesitas proporcionar:** Usuario y contraseña de GitHub
+
+### Instalación Local
+
+```bash
+# Si ya descargaste el repositorio
+cd /var/www/html/backup-manager
+sudo bash install.sh
+```
 
 ## 🔐 Acceso
 

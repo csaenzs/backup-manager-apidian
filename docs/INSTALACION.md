@@ -4,23 +4,42 @@ Guía completa para instalar el sistema de backups en un servidor nuevo.
 
 ---
 
-## 🚀 Instalación Rápida (Recomendada)
+## 🚀 Instalación Completamente Automática (Recomendada)
 
-### **Método 1: Script Automático**
+### **Método 1: Instalación desde GitHub (Un solo comando)**
+
+Este método descarga e instala todo automáticamente desde el repositorio GitHub:
+
+```bash
+curl -sSL https://raw.githubusercontent.com/csaenzs/backup-manager-apidian/master/install.sh | sudo bash
+```
+
+**O si ya descargaste el repositorio:**
 
 ```bash
 cd /var/www/html/backup-manager
 sudo bash install.sh
 ```
 
-El script te pedirá:
-- Host de MySQL (por defecto: localhost)
-- Puerto de MySQL (por defecto: 3306)
-- Nombre de la base de datos
-- Usuario de MySQL
-- Contraseña de MySQL
+**El script automáticamente:**
+- ✅ Verifica e instala dependencias necesarias
+- ✅ Clona el repositorio desde GitHub (solo pide usuario/contraseña de GitHub)
+- ✅ Auto-detecta la configuración de la API Laravel (lee el archivo .env)
+- ✅ Configura Apache en el puerto correcto
+- ✅ Crea todos los directorios necesarios
+- ✅ Establece permisos correctos
+- ✅ Verifica la conexión a MySQL
+- ✅ Instala el sistema listo para usar
 
-Y configurará automáticamente todo el sistema.
+**Solo necesitas proporcionar:**
+- Usuario y contraseña/token de GitHub
+- (Opcional) Credenciales MySQL si no se auto-detectan
+
+**Ventajas:**
+- 🔥 Instalación en 1-2 minutos
+- 🔥 Sin afectar la API existente
+- 🔥 Auto-detección de configuración
+- 🔥 Respaldo automático de configuración anterior
 
 ---
 
