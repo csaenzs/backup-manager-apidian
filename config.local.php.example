@@ -1,0 +1,50 @@
+<?php
+/**
+ * Configuración manual del sistema de backups
+ *
+ * Instrucciones:
+ * 1. Copiar este archivo como config.local.php
+ * 2. Editar los valores según tu servidor
+ * 3. Guardar y el sistema usará esta configuración
+ */
+
+$config = [
+    // Información del servidor
+    'server_name' => 'mi-servidor',
+    'detected_at' => date('Y-m-d H:i:s'),
+
+    // ===== CONFIGURACIÓN DE BASE DE DATOS =====
+    'db_host' => 'localhost',           // Host de MySQL (localhost, IP o dominio)
+    'db_port' => '3306',                // Puerto de MySQL (por defecto 3306)
+    'db_name' => 'nombre_base_datos',   // Nombre de tu base de datos
+    'db_user' => 'usuario_mysql',       // Usuario de MySQL
+    'db_pass' => 'contraseña_mysql',    // Contraseña de MySQL
+
+    // ===== RUTAS DE ALMACENAMIENTO =====
+    // Donde se guardarán los backups
+    'backup_path' => '/var/www/html/backup-manager/backups',
+
+    // Archivos temporales durante el backup
+    'temp_path' => '/var/www/html/backup-manager/temp',
+
+    // Logs del sistema
+    'log_path' => '/var/www/html/backup-manager/logs',
+
+    // ===== OPCIONAL: Ruta de archivos de la aplicación =====
+    // Si tu aplicación tiene archivos que quieres respaldar (uploads, storage, etc.)
+    'storage_path' => '/var/www/html/mi-aplicacion/storage',
+
+    // O si no hay archivos para respaldar, dejarlo null:
+    // 'storage_path' => null,
+
+    // ===== CONFIGURACIÓN DE BACKUPS =====
+    'retention_days' => 30,             // Días que se mantienen los backups
+    'compression' => 'medium',          // Nivel de compresión: low, medium, high
+
+    // ===== SEGURIDAD =====
+    // Contraseña del panel (cambiar por seguridad!)
+    'admin_password' => password_hash('admin123', PASSWORD_DEFAULT),
+];
+
+return $config;
+?>
