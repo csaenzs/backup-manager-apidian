@@ -565,17 +565,44 @@ function deleteBackup(backupId) {
  * Load schedule settings
  */
 function loadSchedule() {
+    console.log('Cargando configuración de programación...');
+
     fetch('api/schedule.php')
         .then(response => response.json())
         .then(data => {
+            console.log('Programación cargada:', data);
+
+            const scheduleEnabled = document.getElementById('schedule-enabled');
+            const scheduleOptions = document.querySelector('.schedule-options');
+            const cronConfig = document.getElementById('cron-config');
+
+            if (scheduleEnabled) {
+                scheduleEnabled.checked = data.enabled || false;
+            }
+
+            if (scheduleOptions) {
+                scheduleOptions.style.display = data.enabled ? 'block' : 'none';
+            }
+
             if (data.enabled) {
-                document.getElementById('enable-schedule').checked = true;
-                document.getElementById('schedule-options').style.display = 'flex';
-                document.getElementById('schedule-frequency').value = data.frequency || 'daily';
-                document.getElementById('schedule-time').value = data.time || '01:00';
+                const frequencyEl = document.getElementById('schedule-frequency');
+                const timeEl = document.getElementById('schedule-time');
+                const typeEl = document.getElementById('schedule-type');
+
+                if (frequencyEl) frequencyEl.value = data.frequency || 'daily';
+                if (timeEl) timeEl.value = data.time || '03:00';
+                if (typeEl) typeEl.value = data.type || 'full';
+
+                // Mostrar configuración de cron si existe
+                if (cronConfig && data.cron_command) {
+                    cronConfig.textContent = data.cron_command;
+                } else if (cronConfig) {
+                    cronConfig.textContent = 'Configuración guardada. El cron está activo.';
+                }
             } else {
-                document.getElementById('enable-schedule').checked = false;
-                document.getElementById('schedule-options').style.display = 'none';
+                if (cronConfig) {
+                    cronConfig.textContent = 'No configurado';
+                }
             }
         })
         .catch(error => {
@@ -584,18 +611,29 @@ function loadSchedule() {
 }
 
 // Toggle schedule options
-document.getElementById('enable-schedule').addEventListener('change', function() {
-    document.getElementById('schedule-options').style.display = this.checked ? 'flex' : 'none';
+document.addEventListener('DOMContentLoaded', function() {
+    const scheduleEnabled = document.getElementById('schedule-enabled');
+    if (scheduleEnabled) {
+        scheduleEnabled.addEventListener('change', function() {
+            const scheduleOptions = document.querySelector('.schedule-options');
+            if (scheduleOptions) {
+                scheduleOptions.style.display = this.checked ? 'block' : 'none';
+            }
+        });
+    }
 });
 
 /**
  * Save schedule settings
  */
 function saveSchedule() {
-    const enabled = document.getElementById('enable-schedule').checked;
+    const enabled = document.getElementById('schedule-enabled').checked;
     const frequency = document.getElementById('schedule-frequency').value;
     const time = document.getElementById('schedule-time').value;
-    
+    const type = document.getElementById('schedule-type').value;
+
+    console.log('Guardando programación:', { enabled, frequency, time, type });
+
     fetch('api/schedule.php', {
         method: 'POST',
         headers: {
@@ -604,21 +642,29 @@ function saveSchedule() {
         body: JSON.stringify({
             enabled: enabled,
             frequency: frequency,
-            time: time
+            time: time,
+            type: type
         })
     })
     .then(response => response.json())
     .then(data => {
+        console.log('Respuesta de schedule.php:', data);
         if (data.success) {
-            alert('Programación guardada exitosamente');
+            alert('✅ Programación guardada exitosamente\n\n' + (data.message || ''));
+
+            // Actualizar la información de cron si está disponible
+            if (data.cron_command) {
+                document.getElementById('cron-config').textContent = data.cron_command;
+            }
+
             loadDashboardData();
         } else {
-            alert('Error al guardar programación: ' + data.message);
+            alert('❌ Error al guardar programación:\n' + (data.message || 'Error desconocido'));
         }
     })
     .catch(error => {
         console.error('Error saving schedule:', error);
-        alert('Error al guardar programación');
+        alert('❌ Error al guardar programación. Ver consola para detalles.');
     });
 }
 
