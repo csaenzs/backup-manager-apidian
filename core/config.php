@@ -114,8 +114,27 @@ class Config {
     
     private static function saveConfig() {
         $configContent = "<?php\n\$config = " . var_export(self::$config, true) . ";\n";
+
+        // Get current file owner if file exists
+        $maintainOwnership = false;
+        if (file_exists(self::$configFile)) {
+            $fileInfo = stat(self::$configFile);
+            $maintainOwnership = true;
+            $currentUid = $fileInfo['uid'];
+            $currentGid = $fileInfo['gid'];
+        }
+
+        // Write the file
         file_put_contents(self::$configFile, $configContent);
-        chmod(self::$configFile, 0600); // Secure the config file
+
+        // Set secure permissions
+        chmod(self::$configFile, 0600);
+
+        // Maintain ownership if file existed and we're running as root
+        if ($maintainOwnership && posix_getuid() === 0) {
+            chown(self::$configFile, $currentUid);
+            chgrp(self::$configFile, $currentGid);
+        }
     }
     
     public static function get($key, $default = null) {

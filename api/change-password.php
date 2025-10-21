@@ -62,26 +62,45 @@ if (in_array(strtolower($newPassword), $commonPasswords)) {
 try {
     // Hash the new password
     $hashedPassword = password_hash($newPassword, PASSWORD_DEFAULT);
-    
+
+    // Debug: Log the attempt
+    error_log("Password change attempt - Current hash: " . substr(Config::get('admin_password'), 0, 20));
+    error_log("Password change attempt - New hash: " . substr($hashedPassword, 0, 20));
+
     // Update the configuration
     Config::set('admin_password', $hashedPassword);
-    
+
+    // Verify the change was saved
+    $savedHash = Config::get('admin_password');
+    if ($savedHash !== $hashedPassword) {
+        error_log("ERROR: Password hash was not saved correctly!");
+        error_log("Expected: " . $hashedPassword);
+        error_log("Got: " . $savedHash);
+        throw new Exception('Failed to save password');
+    }
+
+    // Verify the new password works
+    if (!password_verify($newPassword, $savedHash)) {
+        error_log("ERROR: New password verification failed!");
+        throw new Exception('Password verification failed after save');
+    }
+
     // Log the password change for security audit
     $logMessage = date('Y-m-d H:i:s') . " - Password changed from IP: " . ($_SERVER['REMOTE_ADDR'] ?? 'unknown') . "\n";
     file_put_contents(__DIR__ . '/../logs/security.log', $logMessage, FILE_APPEND | LOCK_EX);
-    
+
     // Force logout after password change for security
     session_destroy();
-    
+
     echo json_encode([
         'success' => true,
         'message' => 'Contraseña cambiada exitosamente'
     ]);
-    
+
 } catch (Exception $e) {
     error_log("Password change failed: " . $e->getMessage());
     echo json_encode([
-        'error' => 'Error interno del servidor',
+        'error' => 'Error al cambiar contraseña: ' . $e->getMessage(),
         'success' => false
     ]);
 }

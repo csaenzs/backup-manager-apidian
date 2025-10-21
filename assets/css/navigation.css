@@ -1,0 +1,551 @@
+/* Navigation Styles */
+.main-nav {
+    background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+    border-radius: 12px;
+    padding: 10px;
+    margin: 20px 0;
+    box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1);
+}
+
+.nav-tabs {
+    list-style: none;
+    display: flex;
+    gap: 5px;
+    margin: 0;
+    padding: 0;
+    flex-wrap: wrap;
+}
+
+.nav-item {
+    flex: 1;
+    min-width: 100px;
+    background: rgba(255, 255, 255, 0.1);
+    border-radius: 8px;
+    padding: 12px 16px;
+    cursor: pointer;
+    transition: all 0.3s ease;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 5px;
+    backdrop-filter: blur(10px);
+    border: 1px solid rgba(255, 255, 255, 0.1);
+}
+
+.nav-item:hover {
+    background: rgba(255, 255, 255, 0.2);
+    transform: translateY(-2px);
+    box-shadow: 0 4px 12px rgba(0, 0, 0, 0.15);
+}
+
+.nav-item.active {
+    background: rgba(255, 255, 255, 0.95);
+    color: #667eea;
+    box-shadow: 0 4px 12px rgba(0, 0, 0, 0.2);
+}
+
+.nav-item .nav-icon {
+    font-size: 24px;
+    display: block;
+}
+
+.nav-item .nav-text {
+    font-size: 12px;
+    font-weight: 600;
+    text-align: center;
+    color: rgba(255, 255, 255, 0.9);
+}
+
+.nav-item.active .nav-text {
+    color: #667eea;
+}
+
+/* Tab Content */
+.tab-content {
+    margin-top: 20px;
+}
+
+.tab-pane {
+    display: none;
+    animation: fadeIn 0.3s ease;
+}
+
+.tab-pane.active {
+    display: block;
+}
+
+@keyframes fadeIn {
+    from {
+        opacity: 0;
+        transform: translateY(10px);
+    }
+    to {
+        opacity: 1;
+        transform: translateY(0);
+    }
+}
+
+/* Remote Section Styles */
+.remote-section {
+    background: var(--card-bg);
+    padding: 30px;
+    border-radius: 12px;
+}
+
+.remote-status {
+    margin-bottom: 30px;
+}
+
+.status-card {
+    padding: 20px;
+    border-radius: 8px;
+    border-left: 4px solid #667eea;
+}
+
+.remote-config {
+    background: var(--card-bg);
+    padding: 25px;
+    border-radius: 8px;
+    border: 1px solid var(--border-color);
+}
+
+.form-group {
+    margin-bottom: 20px;
+}
+
+.form-group label {
+    display: block;
+    margin-bottom: 8px;
+    font-weight: 600;
+    color: var(--text-primary);
+}
+
+.form-group input[type="text"],
+.form-group input[type="password"],
+.form-group input[type="number"],
+.form-group input[type="email"],
+.form-group select {
+    width: 100%;
+    padding: 10px;
+    border: 1px solid var(--border-color);
+    border-radius: 6px;
+    background: #ffffff;
+    color: var(--text-primary);
+    font-size: 14px;
+    transition: all 0.3s ease;
+}
+
+.form-group input[type="text"]:focus,
+.form-group input[type="password"]:focus,
+.form-group input[type="number"]:focus,
+.form-group input[type="email"]:focus,
+.form-group select:focus {
+    outline: none;
+    border-color: var(--primary-color);
+    box-shadow: 0 0 0 3px rgba(37, 99, 235, 0.1);
+}
+
+.form-group input[type="checkbox"] {
+    margin-right: 8px;
+}
+
+.form-actions {
+    display: flex;
+    gap: 10px;
+    margin-top: 25px;
+}
+
+.test-result {
+    margin-top: 20px;
+    padding: 15px;
+    border-radius: 6px;
+    display: none;
+}
+
+.test-result.success {
+    background: rgba(16, 185, 129, 0.1);
+    border: 1px solid #10b981;
+    color: #10b981;
+    display: block;
+}
+
+.test-result.error {
+    background: rgba(239, 68, 68, 0.1);
+    border: 1px solid #ef4444;
+    color: #ef4444;
+    display: block;
+}
+
+/* Backup Section */
+.backup-section {
+    padding: 20px;
+}
+
+.backup-options {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(250px, 1fr));
+    gap: 20px;
+    margin: 30px 0;
+}
+
+.backup-card {
+    background: var(--card-bg);
+    border-radius: 12px;
+    padding: 30px;
+    text-align: center;
+    cursor: pointer;
+    transition: all 0.3s ease;
+    border: 2px solid transparent;
+}
+
+.backup-card:hover {
+    transform: translateY(-5px);
+    box-shadow: 0 10px 30px rgba(102, 126, 234, 0.2);
+    border-color: var(--primary-color);
+}
+
+.backup-icon {
+    font-size: 48px;
+    margin-bottom: 15px;
+}
+
+.backup-card h3 {
+    margin: 10px 0;
+    color: var(--text-primary);
+}
+
+.backup-card p {
+    color: var(--text-secondary);
+    margin-bottom: 20px;
+}
+
+/* Logs Section */
+.logs-section {
+    padding: 20px;
+}
+
+.logs-controls {
+    display: flex;
+    gap: 10px;
+    margin-bottom: 20px;
+    align-items: center;
+}
+
+.logs-viewer {
+    background: var(--dark-bg);
+    border-radius: 8px;
+    padding: 20px;
+    max-height: 600px;
+    overflow-y: auto;
+}
+
+.logs-viewer pre {
+    margin: 0;
+    font-family: 'Monaco', 'Courier New', monospace;
+    font-size: 12px;
+    line-height: 1.5;
+    color: #10b981;
+}
+
+/* History Section Enhanced */
+.history-controls {
+    display: flex;
+    gap: 10px;
+    margin-bottom: 20px;
+    align-items: center;
+}
+
+.history-controls select {
+    padding: 8px 12px;
+    border-radius: 6px;
+    background: #ffffff;
+    color: var(--text-primary);
+    border: 1px solid var(--border-color);
+    transition: all 0.3s ease;
+}
+
+.history-controls select:focus {
+    outline: none;
+    border-color: var(--primary-color);
+    box-shadow: 0 0 0 3px rgba(37, 99, 235, 0.1);
+}
+
+/* Settings Grid Enhanced */
+.settings-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(300px, 1fr));
+    gap: 25px;
+    margin: 30px 0;
+}
+
+.setting-item small {
+    display: block;
+    margin-top: 5px;
+    color: var(--text-secondary);
+    font-size: 12px;
+}
+
+/* Security Additional */
+.security-additional {
+    margin-top: 40px;
+    padding-top: 30px;
+    border-top: 1px solid var(--border-color);
+}
+
+.security-additional h3 {
+    margin-bottom: 20px;
+}
+
+/* Responsive Design */
+@media (max-width: 768px) {
+    .nav-tabs {
+        flex-direction: column;
+    }
+
+    .nav-item {
+        flex-direction: row;
+        justify-content: flex-start;
+        gap: 10px;
+    }
+
+    .nav-item .nav-icon {
+        font-size: 20px;
+    }
+
+    .backup-options {
+        grid-template-columns: 1fr;
+    }
+
+    .form-actions {
+        flex-direction: column;
+    }
+
+    .settings-grid {
+        grid-template-columns: 1fr;
+    }
+}
+
+/* Dark Mode Support */
+@media (prefers-color-scheme: dark) {
+    .main-nav {
+        background: linear-gradient(135deg, #4c5fd5 0%, #7c3aed 100%);
+    }
+
+    .nav-item {
+        background: rgba(255, 255, 255, 0.05);
+    }
+
+    .nav-item:hover {
+        background: rgba(255, 255, 255, 0.1);
+    }
+
+    .nav-item.active {
+        background: rgba(255, 255, 255, 0.9);
+        color: #4c5fd5;
+    }
+}
+
+/* Loading States */
+.loading {
+    position: relative;
+    pointer-events: none;
+    opacity: 0.6;
+}
+
+.loading::after {
+    content: '';
+    position: absolute;
+    top: 50%;
+    left: 50%;
+    width: 30px;
+    height: 30px;
+    border: 3px solid var(--primary-color);
+    border-top-color: transparent;
+    border-radius: 50%;
+    animation: spin 1s linear infinite;
+    transform: translate(-50%, -50%);
+}
+
+@keyframes spin {
+    to {
+        transform: translate(-50%, -50%) rotate(360deg);
+    }
+}
+/* Fix for Remote Configuration Input Contrast */
+#remote-tab input[type="text"],
+#remote-tab input[type="password"],
+#remote-tab input[type="number"],
+#remote-tab input[type="email"],
+#remote-tab select,
+#remote-tab textarea,
+.remote-form input[type="text"],
+.remote-form input[type="password"],
+.remote-form input[type="number"],
+.remote-form select,
+.remote-form textarea {
+    background: #ffffff !important;
+    color: #111827 !important;
+    border: 1px solid #d1d5db !important;
+    padding: 10px 15px;
+    border-radius: 6px;
+    font-size: 14px;
+    width: 100%;
+    box-sizing: border-box;
+    transition: all 0.3s ease;
+}
+
+#remote-tab input[type="text"]:focus,
+#remote-tab input[type="password"]:focus,
+#remote-tab input[type="number"]:focus,
+#remote-tab input[type="email"]:focus,
+#remote-tab select:focus,
+#remote-tab textarea:focus,
+.remote-form input[type="text"]:focus,
+.remote-form input[type="password"]:focus,
+.remote-form input[type="number"]:focus,
+.remote-form select:focus,
+.remote-form textarea:focus {
+    outline: none;
+    border-color: #2563eb !important;
+    box-shadow: 0 0 0 3px rgba(37, 99, 235, 0.1) !important;
+    background: #ffffff !important;
+}
+
+#remote-tab input[type="checkbox"] {
+    width: 18px;
+    height: 18px;
+    cursor: pointer;
+    margin-right: 8px;
+}
+
+/* Placeholder text visibility */
+#remote-tab input::placeholder,
+#remote-tab textarea::placeholder,
+.remote-form input::placeholder,
+.remote-form textarea::placeholder {
+    color: #9ca3af !important;
+    opacity: 1;
+}
+
+/* Select dropdown arrow visibility */
+#remote-tab select,
+.remote-form select {
+    appearance: auto;
+    -webkit-appearance: menulist;
+    -moz-appearance: menulist;
+    background-image: none;
+}
+
+/* Disabled inputs */
+#remote-tab input:disabled,
+#remote-tab select:disabled,
+#remote-tab textarea:disabled,
+.remote-form input:disabled,
+.remote-form select:disabled,
+.remote-form textarea:disabled {
+    background: #f3f4f6 !important;
+    color: #6b7280 !important;
+    cursor: not-allowed;
+}
+
+/* Test result styling */
+.test-result {
+    margin-top: 15px;
+    padding: 12px 20px;
+    border-radius: 6px;
+    font-weight: 500;
+    display: none;
+}
+
+.test-result.success {
+    background: #d1fae5;
+    color: #065f46;
+    border: 1px solid #10b981;
+}
+
+.test-result.error {
+    background: #fee2e2;
+    color: #991b1b;
+    border: 1px solid #ef4444;
+}
+
+/* Remote status content */
+#remote-status-content {
+    padding: 15px;
+    background: #f9fafb;
+    border-radius: 6px;
+    margin-bottom: 20px;
+}
+
+#remote-status-content .status-active {
+    background: #d1fae5 !important;
+    color: #065f46;
+}
+
+#remote-status-content p {
+    margin: 8px 0;
+    color: inherit;
+}
+
+/* Form group spacing for remote forms */
+.remote-form .form-group {
+    margin-bottom: 20px;
+}
+
+.remote-form label {
+    display: block;
+    margin-bottom: 6px;
+    font-weight: 500;
+    color: #374151;
+}
+
+/* Button contrast improvements */
+#remote-tab .btn,
+.remote-form .btn {
+    background: #2563eb;
+    color: white;
+    border: none;
+    padding: 10px 20px;
+    border-radius: 6px;
+    cursor: pointer;
+    font-weight: 500;
+    transition: all 0.3s ease;
+}
+
+#remote-tab .btn:hover,
+.remote-form .btn:hover {
+    background: #1d4ed8;
+    transform: translateY(-1px);
+}
+
+#remote-tab .btn-secondary {
+    background: #6b7280;
+}
+
+#remote-tab .btn-secondary:hover {
+    background: #4b5563;
+}
+
+/* Dark mode overrides for better visibility */
+@media (prefers-color-scheme: dark) {
+    #remote-tab input[type="text"],
+    #remote-tab input[type="password"],
+    #remote-tab input[type="number"],
+    #remote-tab select,
+    #remote-tab textarea,
+    .remote-form input,
+    .remote-form select,
+    .remote-form textarea {
+        background: #f9fafb !important;
+        color: #111827 !important;
+        border-color: #d1d5db !important;
+    }
+    
+    #remote-status-content {
+        background: #e5e7eb;
+    }
+    
+    .remote-form label {
+        color: #111827;
+    }
+}

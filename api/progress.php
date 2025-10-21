@@ -2,7 +2,7 @@
 session_start();
 require_once __DIR__ . '/../core/config.php';
 require_once __DIR__ . '/../core/auth.php';
-require_once __DIR__ . '/../core/BackupManager.php';
+require_once __DIR__ . '/../core/BackupProgress.php';
 
 // Check authentication
 if (!Auth::isAuthenticated()) {
@@ -11,13 +11,25 @@ if (!Auth::isAuthenticated()) {
     exit;
 }
 
-$backupManager = new BackupManager();
-$progress = $backupManager->getProgress();
+// Get current progress from the new system
+$progress = BackupProgress::getCurrent();
 
-// Get recent log lines
-$logs = $backupManager->getLogs(10);
-if (!empty($logs)) {
-    $progress['log'] = implode("\n", array_slice($logs, -5));
+// If no progress file, check if backup is not running
+if (!$progress) {
+    $progress = [
+        'percentage' => -1,
+        'message' => 'No hay backup en progreso',
+        'timestamp' => time()
+    ];
+}
+
+// Add log information if available
+$logFile = Config::get('log_path') . '/backup_' . date('Y-m-d') . '.log';
+if (file_exists($logFile)) {
+    $logs = array_slice(file($logFile, FILE_IGNORE_NEW_LINES | FILE_SKIP_EMPTY_LINES), -5);
+    if (!empty($logs)) {
+        $progress['log'] = implode("\n", $logs);
+    }
 }
 
 header('Content-Type: application/json');

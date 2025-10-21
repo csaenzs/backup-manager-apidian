@@ -36,38 +36,86 @@ function loadDashboardData() {
     })
         .then(response => {
             console.log('📡 API Response status:', response.status);
+            if (!response.ok) {
+                throw new Error('Network response was not ok: ' + response.status);
+            }
             return response.json();
         })
         .then(data => {
-            console.log('📊 Dashboard data loaded - DB: ' + formatSize(data.db_size) + ', Storage: ' + formatSize(data.storage_size));
-            
+            console.log('📊 Dashboard data loaded:', data);
+
             // Update storage size
-            document.getElementById('storage-size').textContent = formatSize(data.storage_size);
-            
-            // Update database size  
-            document.getElementById('db-size').textContent = formatSize(data.db_size);
-            
-            // Update last backup info
-            if (data.last_backup) {
-                document.getElementById('last-backup').innerHTML = formatDate(data.last_backup.date);
-                document.getElementById('last-backup').className = 'last-backup';
-            } else {
-                document.getElementById('last-backup').textContent = 'No hay backups';
-                document.getElementById('last-backup').className = 'last-backup warning';
+            const storageElement = document.getElementById('storage-size');
+            if (storageElement) {
+                storageElement.textContent = formatSize(data.storage_size || 0);
             }
-            
-            // Update next backup
-            if (data.next_backup) {
-                document.getElementById('next-backup').textContent = 'Próximo: ' + formatDate(data.next_backup);
+
+            // Update database size
+            const dbElement = document.getElementById('db-size');
+            if (dbElement) {
+                dbElement.textContent = formatSize(data.db_size || 0);
+            }
+
+            // Update last backup info
+            const lastBackupTimeElement = document.getElementById('last-backup-time');
+            const lastBackupTypeElement = document.getElementById('last-backup-type');
+
+            if (data.last_backup && lastBackupTimeElement) {
+                lastBackupTimeElement.innerHTML = formatDate(data.last_backup.date);
+                if (lastBackupTypeElement) {
+                    lastBackupTypeElement.textContent = data.last_backup.type || 'Backup';
+                }
+            } else if (lastBackupTimeElement) {
+                lastBackupTimeElement.textContent = 'No hay backups';
+                if (lastBackupTypeElement) {
+                    lastBackupTypeElement.textContent = '-';
+                }
+            }
+
+            // Update disk space
+            const diskSpaceElement = document.getElementById('disk-space');
+            const diskUsageElement = document.getElementById('disk-usage');
+
+            if (data.disk_space && diskSpaceElement) {
+                const free = formatSize(data.disk_space.free || 0);
+                const total = formatSize(data.disk_space.total || 0);
+                diskSpaceElement.textContent = free + ' libre';
+                if (diskUsageElement) {
+                    diskUsageElement.textContent = `${data.disk_space.percent || 0}% usado de ${total}`;
+                }
+            } else if (diskSpaceElement) {
+                diskSpaceElement.textContent = 'No disponible';
+                if (diskUsageElement) {
+                    diskUsageElement.textContent = '-';
+                }
+            }
+
+            // Update backup count if element exists
+            const backupCountElement = document.getElementById('backup-count');
+            if (backupCountElement && data.backup_count !== undefined) {
+                backupCountElement.textContent = data.backup_count + ' backups';
             }
         })
         .catch(error => {
             console.error('❌ Error loading dashboard data:', error);
-            console.error('❌ Error details:', error.message, error.stack);
-            
+            console.error('❌ Error details:', error.message);
+
             // Show error in UI
-            document.getElementById('storage-size').textContent = 'Error cargando datos';
-            document.getElementById('db-size').textContent = 'Error cargando datos';
+            const storageElement = document.getElementById('storage-size');
+            const dbElement = document.getElementById('db-size');
+
+            if (storageElement) {
+                storageElement.textContent = 'Error cargando datos';
+            }
+            if (dbElement) {
+                dbElement.textContent = 'Error cargando datos';
+            }
+
+            // Try to at least show disk space
+            const diskSpaceElement = document.getElementById('disk-space');
+            if (diskSpaceElement) {
+                diskSpaceElement.textContent = 'Error cargando datos';
+            }
         });
 }
 
@@ -119,41 +167,96 @@ function startBackup(type) {
  * Monitor backup progress
  */
 function monitorProgress() {
+    let lastLogLength = 0;
+
     progressInterval = setInterval(() => {
         fetch('api/progress.php')
             .then(response => response.json())
             .then(data => {
                 if (data.progress) {
                     const progress = data.progress;
-                    
-                    // Update progress bar
-                    document.getElementById('progress-fill').style.width = progress.percentage + '%';
-                    document.getElementById('progress-fill').textContent = progress.percentage + '%';
-                    
-                    // Update status text
-                    document.getElementById('progress-text').textContent = progress.message;
-                    
-                    // Update log
-                    if (progress.log) {
-                        document.getElementById('progress-log').textContent += progress.log + '\n';
-                        document.getElementById('progress-log').scrollTop = document.getElementById('progress-log').scrollHeight;
+
+                    // Update progress bar with smooth animation
+                    const progressBar = document.getElementById('progress-fill');
+                    const percentage = Math.max(0, Math.min(100, progress.percentage));
+
+                    progressBar.style.width = percentage + '%';
+                    progressBar.textContent = percentage >= 0 ? percentage.toFixed(1) + '%' : '';
+
+                    // Add color based on progress
+                    if (percentage >= 0 && percentage < 30) {
+                        progressBar.style.backgroundColor = '#dc3545'; // Red
+                    } else if (percentage < 70) {
+                        progressBar.style.backgroundColor = '#ffc107'; // Yellow
+                    } else if (percentage < 100) {
+                        progressBar.style.backgroundColor = '#17a2b8'; // Blue
+                    } else {
+                        progressBar.style.backgroundColor = '#28a745'; // Green
                     }
-                    
+
+                    // Update status text with step info
+                    let statusText = progress.message;
+                    if (progress.step && progress.total_steps) {
+                        statusText += ` (Paso ${progress.step}/${progress.total_steps})`;
+                    }
+
+                    // Add ETA if available
+                    if (progress.eta_formatted) {
+                        statusText += ` - ETA: ${progress.eta_formatted}`;
+                    }
+
+                    // Add elapsed time
+                    if (progress.elapsed) {
+                        const minutes = Math.floor(progress.elapsed / 60);
+                        const seconds = progress.elapsed % 60;
+                        statusText += ` - Tiempo: ${minutes}m ${seconds}s`;
+                    }
+
+                    document.getElementById('progress-text').textContent = statusText;
+
+                    // Update details if available
+                    if (progress.details) {
+                        const detailsText = Object.entries(progress.details)
+                            .map(([key, value]) => `${key}: ${value}`)
+                            .join(' | ');
+                        const detailsEl = document.getElementById('progress-details');
+                        if (detailsEl) {
+                            detailsEl.textContent = detailsText;
+                        }
+                    }
+
+                    // Update log incrementally
+                    if (progress.log) {
+                        const logEl = document.getElementById('progress-log');
+                        const newLog = progress.log.substring(lastLogLength);
+                        if (newLog) {
+                            logEl.textContent += newLog;
+                            logEl.scrollTop = logEl.scrollHeight;
+                            lastLogLength = progress.log.length;
+                        }
+                    }
+
                     // Check if completed
                     if (progress.percentage >= 100 || progress.percentage < 0) {
                         clearInterval(progressInterval);
                         progressInterval = null;
-                        
-                        if (progress.percentage >= 100) {
-                            alert('Backup completado exitosamente!');
-                        } else {
-                            alert('Backup completado con errores. Revisa los logs.');
-                        }
-                        
-                        // Refresh data
-                        loadHistory();
-                        loadDashboardData();
-                        
+
+                        // Show completion notification
+                        const notification = progress.percentage >= 100
+                            ? '✅ Backup completado exitosamente!'
+                            : '⚠️ Backup completado con errores. Revisa los logs.';
+
+                        // Update progress text with completion message
+                        document.getElementById('progress-text').textContent = notification;
+
+                        // Show alert after a short delay
+                        setTimeout(() => {
+                            alert(notification);
+                            // Refresh data
+                            loadHistory();
+                            loadDashboardData();
+                        }, 500);
+
                         // Reset UI after 5 seconds
                         setTimeout(resetBackupUI, 5000);
                     }
@@ -162,7 +265,7 @@ function monitorProgress() {
             .catch(error => {
                 console.error('Error monitoring progress:', error);
             });
-    }, 1000);
+    }, 500); // Check every 500ms for smoother updates
 }
 
 /**
@@ -555,29 +658,41 @@ function saveSettings() {
  * Utility functions
  */
 function formatSize(bytes) {
-    if (!bytes || bytes === 0) return '0 MB';
-    
+    // Handle null, undefined, or invalid values
+    if (bytes === null || bytes === undefined || isNaN(bytes)) {
+        return '0 MB';
+    }
+
+    // Convert to number if it's a string
+    bytes = Number(bytes);
+
+    // Handle zero or negative values
+    if (bytes <= 0) {
+        return '0 MB';
+    }
+
     const sizes = ['B', 'KB', 'MB', 'GB', 'TB'];
     const i = Math.floor(Math.log(bytes) / Math.log(1024));
-    
+
     if (i === 0) return bytes + ' ' + sizes[i];
+    if (i >= sizes.length) return (bytes / Math.pow(1024, sizes.length - 1)).toFixed(2) + ' ' + sizes[sizes.length - 1];
+
     return (bytes / Math.pow(1024, i)).toFixed(2) + ' ' + sizes[i];
 }
 
 function formatDate(dateString) {
     if (!dateString) return '-';
-    
+
     const date = new Date(dateString);
     const now = new Date();
-    
+
     // Check if date is valid
     if (isNaN(date.getTime())) {
         return dateString; // Return original string if invalid
     }
-    
+
     const diff = now - date;
-    const absDiff = Math.abs(diff);
-    
+
     // Format the full date and time for display
     const fullFormat = date.toLocaleString('es-ES', {
         year: 'numeric',
@@ -588,36 +703,44 @@ function formatDate(dateString) {
         second: '2-digit',
         hour12: false
     });
-    
-    // If less than 24 hours ago, show relative time with full date in tooltip
-    if (absDiff < 86400000) {
-        const hours = Math.floor(absDiff / 3600000);
+
+    // If less than 24 hours ago and in the past, show relative time
+    if (diff >= 0 && diff < 86400000) {
+        const hours = Math.floor(diff / 3600000);
         let relativeTime;
-        
+
         if (hours < 1) {
-            const minutes = Math.floor(absDiff / 60000);
+            const minutes = Math.floor(diff / 60000);
             if (minutes < 1) {
-                relativeTime = diff >= 0 ? 'Hace unos segundos' : 'En unos segundos';
+                relativeTime = 'Hace unos segundos';
+            } else if (minutes === 1) {
+                relativeTime = 'Hace 1 minuto';
             } else {
-                relativeTime = diff >= 0 ? `Hace ${minutes} min` : `En ${minutes} min`;
+                relativeTime = `Hace ${minutes} minutos`;
             }
+        } else if (hours === 1) {
+            relativeTime = 'Hace 1 hora';
         } else {
-            relativeTime = diff >= 0 ? `Hace ${hours}h` : `En ${hours}h`;
+            relativeTime = `Hace ${hours} horas`;
         }
-        
+
         return `<span title="${fullFormat}" style="cursor: help;">${relativeTime}</span>`;
     }
-    
-    // For older dates, show formatted date and time with full date in tooltip
+
+    // For all other dates (older than 24h or future dates), show formatted date
     const shortFormat = date.toLocaleDateString('es-ES', {
         year: 'numeric',
         month: 'short',
-        day: 'numeric',
-        hour: '2-digit',
-        minute: '2-digit'
+        day: 'numeric'
     });
-    
-    return `<span title="${fullFormat}" style="cursor: help;">${shortFormat}</span>`;
+
+    const timeFormat = date.toLocaleTimeString('es-ES', {
+        hour: '2-digit',
+        minute: '2-digit',
+        hour12: false
+    });
+
+    return `<span title="${fullFormat}" style="cursor: help;">${shortFormat} ${timeFormat}</span>`;
 }
 
 function formatDuration(seconds) {
@@ -722,7 +845,7 @@ function changePassword() {
             // Redirect to login
             window.location.href = 'index.php?logout=1';
         } else {
-            alert('Error al cambiar contraseña: ' + data.message);
+            alert('Error al cambiar contraseña: ' + (data.error || data.message || 'Error desconocido'));
         }
     })
     .catch(error => {

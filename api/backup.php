@@ -39,8 +39,8 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     
     // Start backup in background
     $phpPath = PHP_BINARY ?: '/usr/bin/php';
-    $scriptPath = __DIR__ . '/backup_worker.php';
-    
+    $scriptPath = __DIR__ . '/backup_worker_enhanced.php';
+
     // Use nohup to run in background
     $cmd = sprintf(
         "nohup %s %s %s > /dev/null 2>&1 &",
