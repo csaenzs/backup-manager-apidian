@@ -4,6 +4,9 @@
  * Detects API configuration without modifying anything
  */
 
+// Configurar zona horaria a Colombia (UTC-5)
+date_default_timezone_set('America/Bogota');
+
 class Config {
     private static $config = null;
     private static $configFile = __DIR__ . '/../config.local.php';
