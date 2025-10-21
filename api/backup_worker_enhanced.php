@@ -80,7 +80,8 @@ try {
         saveBackupRecord($backupId, $type, $backupFiles);
 
         // Transfer to remote if configured
-        transferToRemote($backupFiles, $progress);
+        // DESHABILITADO: Usar rsync manual desde PuTTY si es necesario
+        // transferToRemote($backupFiles, $progress);
     }
 
     // Complete

@@ -72,10 +72,12 @@ if (!Auth::isAuthenticated()) {
                     <span class="nav-icon">⏰</span>
                     <span class="nav-text">Programación</span>
                 </li>
+                <!-- BACKUP REMOTO DESHABILITADO - Usar rsync manual si es necesario
                 <li class="nav-item" data-tab="remote">
                     <span class="nav-icon">🌐</span>
                     <span class="nav-text">Remoto</span>
                 </li>
+                -->
                 <li class="nav-item" data-tab="settings">
                     <span class="nav-icon">⚙️</span>
                     <span class="nav-text">Configuración</span>
@@ -262,12 +264,13 @@ if (!Auth::isAuthenticated()) {
                 </div>
             </div>
 
-            <!-- Remote Tab -->
+            <!-- BACKUP REMOTO DESHABILITADO
+                 Razón: Usar rsync manual desde PuTTY es más práctico
+                 Para reactivar: descomentar esta sección y el script remote.js
+
             <div class="tab-pane" id="remote-tab">
                 <div class="remote-section">
                     <h2>🌐 Configuración de Backup Remoto</h2>
-
-                    <!-- Remote Status -->
                     <div class="remote-status" id="remote-status">
                         <div class="status-card">
                             <h3>Estado de Configuración</h3>
@@ -276,17 +279,13 @@ if (!Auth::isAuthenticated()) {
                             </div>
                         </div>
                     </div>
-
-                    <!-- Remote Configuration -->
                     <div class="remote-config">
                         <h3>⚙️ Configurar Servidor Remoto</h3>
-
                         <div class="form-group">
                             <label>
                                 <input type="checkbox" id="remote-enabled"> Habilitar backup remoto
                             </label>
                         </div>
-
                         <div class="form-group">
                             <label>Método de Transferencia:</label>
                             <select id="remote-method" onchange="updateRemoteForm()">
@@ -296,7 +295,6 @@ if (!Auth::isAuthenticated()) {
                                 <option value="s3">S3 Compatible</option>
                             </select>
                         </div>
-
                         <div id="remote-form-ssh" class="remote-form">
                             <div class="form-group">
                                 <label>Host/IP:</label>
@@ -330,22 +328,20 @@ if (!Auth::isAuthenticated()) {
                                 <input type="text" id="ssh-path" placeholder="/backup/apidian">
                             </div>
                         </div>
-
                         <div class="form-group">
                             <label>
                                 <input type="checkbox" id="remote-keep-local" checked> Mantener copia local
                             </label>
                         </div>
-
                         <div class="form-actions">
                             <button onclick="testRemoteConnection()" class="btn btn-secondary">🧪 Probar Conexión</button>
                             <button onclick="saveRemoteConfig()" class="btn btn-primary">💾 Guardar Configuración</button>
                         </div>
-
                         <div id="remote-test-result" class="test-result"></div>
                     </div>
                 </div>
             </div>
+            FIN BACKUP REMOTO DESHABILITADO -->
 
             <!-- Settings Tab -->
             <div class="tab-pane" id="settings-tab">
@@ -459,6 +455,6 @@ if (!Auth::isAuthenticated()) {
 
     <script src="assets/js/app.js?v=<?php echo filemtime(__DIR__ . '/assets/js/app.js'); ?>"></script>
     <script src="assets/js/navigation.js"></script>
-    <script src="assets/js/remote.js"></script>
+    <!-- <script src="assets/js/remote.js"></script> DESHABILITADO - Backup remoto desactivado -->
 </body>
 </html>
