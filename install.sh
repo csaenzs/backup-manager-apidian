@@ -79,37 +79,40 @@ if ! systemctl is-active --quiet apache2; then
     systemctl enable apache2
 fi
 
-# Solicitar credenciales de GitHub
-echo ""
-echo "=== CREDENCIALES DE GITHUB ==="
-echo "Repositorio: $GITHUB_REPO"
-read -p "Usuario de GitHub: " GITHUB_USER
-read -sp "Contraseña/Token de GitHub: " GITHUB_PASS
-echo ""
-
-if [ -z "$GITHUB_USER" ] || [ -z "$GITHUB_PASS" ]; then
-    log_error "Usuario y contraseña son requeridos"
-    exit 1
+# Detectar si hay terminal interactivo
+if [ -t 0 ]; then
+    INTERACTIVE=1
+else
+    INTERACTIVE=0
+    log_warn "Modo no interactivo detectado (ejecutado desde curl/pipe)"
 fi
-
-# Crear URL con credenciales
-GITHUB_URL="https://${GITHUB_USER}:${GITHUB_PASS}@github.com/csaenzs/backup-manager-apidian.git"
 
 # Limpiar instalación anterior si existe
 if [ -d "$INSTALL_DIR" ]; then
     log_warn "Instalación existente encontrada en $INSTALL_DIR"
-    read -p "¿Deseas respaldar la configuración existente? (s/N): " BACKUP_CONFIG
-    if [[ "$BACKUP_CONFIG" =~ ^[Ss]$ ]]; then
+
+    if [ $INTERACTIVE -eq 1 ]; then
+        read -p "¿Deseas respaldar la configuración existente? (s/N): " BACKUP_CONFIG
+        if [[ "$BACKUP_CONFIG" =~ ^[Ss]$ ]]; then
+            BACKUP_FILE="/tmp/backup-manager-config-$(date +%Y%m%d-%H%M%S).tar.gz"
+            tar -czf "$BACKUP_FILE" -C "$INSTALL_DIR" config.local.php backups/ logs/ 2>/dev/null || true
+            log_info "Configuración respaldada en: $BACKUP_FILE"
+        fi
+
+        read -p "¿Continuar con la instalación? Esto eliminará los archivos actuales (s/N): " CONTINUE
+        if [[ ! "$CONTINUE" =~ ^[Ss]$ ]]; then
+            log_error "Instalación cancelada"
+            exit 1
+        fi
+    else
+        # Modo automático: respaldar siempre
         BACKUP_FILE="/tmp/backup-manager-config-$(date +%Y%m%d-%H%M%S).tar.gz"
         tar -czf "$BACKUP_FILE" -C "$INSTALL_DIR" config.local.php backups/ logs/ 2>/dev/null || true
-        log_info "Configuración respaldada en: $BACKUP_FILE"
+        log_info "Configuración respaldada automáticamente en: $BACKUP_FILE"
+        log_warn "Continuando instalación en modo automático..."
+        sleep 2
     fi
 
-    read -p "¿Continuar con la instalación? Esto eliminará los archivos actuales (s/N): " CONTINUE
-    if [[ ! "$CONTINUE" =~ ^[Ss]$ ]]; then
-        log_error "Instalación cancelada"
-        exit 1
-    fi
     rm -rf "$INSTALL_DIR"
 fi
 
@@ -118,12 +121,46 @@ echo ""
 echo "=== DESCARGANDO DESDE GITHUB ==="
 log_info "Clonando repositorio..."
 
+# Intentar clonar repositorio público primero
+GITHUB_URL="$GITHUB_REPO"
+
 if git clone "$GITHUB_URL" "$TEMP_DIR" > /dev/null 2>&1; then
     log_info "Repositorio clonado exitosamente"
 else
-    log_error "Error al clonar repositorio. Verifica tus credenciales."
-    rm -rf "$TEMP_DIR"
-    exit 1
+    # Si falla y es modo interactivo, pedir credenciales
+    if [ $INTERACTIVE -eq 1 ]; then
+        log_warn "No se pudo clonar como repositorio público"
+        echo ""
+        echo "=== CREDENCIALES DE GITHUB ==="
+        echo "Repositorio: $GITHUB_REPO"
+        read -p "Usuario de GitHub: " GITHUB_USER
+        read -sp "Contraseña/Token de GitHub: " GITHUB_PASS
+        echo ""
+
+        if [ -z "$GITHUB_USER" ] || [ -z "$GITHUB_PASS" ]; then
+            log_error "Usuario y contraseña son requeridos"
+            exit 1
+        fi
+
+        # Crear URL con credenciales
+        GITHUB_URL="https://${GITHUB_USER}:${GITHUB_PASS}@github.com/csaenzs/backup-manager-apidian.git"
+
+        if git clone "$GITHUB_URL" "$TEMP_DIR" > /dev/null 2>&1; then
+            log_info "Repositorio clonado exitosamente"
+        else
+            log_error "Error al clonar repositorio. Verifica tus credenciales."
+            rm -rf "$TEMP_DIR"
+            exit 1
+        fi
+    else
+        log_error "Error al clonar repositorio."
+        log_error "Si el repositorio es privado, ejecuta el script localmente:"
+        log_error "  git clone https://github.com/csaenzs/backup-manager-apidian.git /var/www/html/backup-manager"
+        log_error "  cd /var/www/html/backup-manager"
+        log_error "  sudo bash install.sh"
+        rm -rf "$TEMP_DIR"
+        exit 1
+    fi
 fi
 
 # Mover archivos al directorio de instalación
@@ -205,18 +242,27 @@ fi
 
 # Si no se pudo auto-detectar, solicitar manualmente
 if [ $AUTO_CONFIG -eq 0 ]; then
-    echo ""
-    echo "=== CONFIGURACIÓN MANUAL DE BASE DE DATOS ==="
-    read -p "Host MySQL [localhost]: " DB_HOST
-    DB_HOST=${DB_HOST:-localhost}
+    if [ $INTERACTIVE -eq 1 ]; then
+        echo ""
+        echo "=== CONFIGURACIÓN MANUAL DE BASE DE DATOS ==="
+        read -p "Host MySQL [localhost]: " DB_HOST
+        DB_HOST=${DB_HOST:-localhost}
 
-    read -p "Puerto MySQL [3306]: " DB_PORT
-    DB_PORT=${DB_PORT:-3306}
+        read -p "Puerto MySQL [3306]: " DB_PORT
+        DB_PORT=${DB_PORT:-3306}
 
-    read -p "Nombre de base de datos: " DB_NAME
-    read -p "Usuario MySQL: " DB_USER
-    read -sp "Contraseña MySQL: " DB_PASS
-    echo ""
+        read -p "Nombre de base de datos: " DB_NAME
+        read -p "Usuario MySQL: " DB_USER
+        read -sp "Contraseña MySQL: " DB_PASS
+        echo ""
+    else
+        log_error "No se pudo auto-detectar la configuración de base de datos"
+        log_error "Para instalación automática, asegúrate de tener un archivo .env"
+        log_error "Ejecuta el script manualmente para configurar:"
+        log_error "  cd /var/www/html/backup-manager"
+        log_error "  sudo bash install.sh"
+        exit 1
+    fi
 fi
 
 # Crear config.local.php
