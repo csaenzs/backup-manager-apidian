@@ -233,6 +233,12 @@ if [ -n "$API_ENV_FILE" ] && [ -f "$API_ENV_FILE" ]; then
     DB_HOST=${DB_HOST:-localhost}
     DB_PORT=${DB_PORT:-3306}
 
+    # Convertir 127.0.0.1 a localhost para usar socket Unix
+    if [ "$DB_HOST" = "127.0.0.1" ]; then
+        log_info "Convirtiendo DB_HOST de 127.0.0.1 a localhost (usará socket Unix)"
+        DB_HOST="localhost"
+    fi
+
     # Detectar ruta del API y storage
     API_PATH=$(dirname "$API_ENV_FILE")
     STORAGE_PATH="$API_PATH/storage"
