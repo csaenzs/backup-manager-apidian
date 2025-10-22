@@ -320,17 +320,25 @@ fi
 echo ""
 echo "=== CONFIGURANDO SERVIDOR WEB ==="
 
-# Intentar detectar el puerto actual si ya existe configuración
-CURRENT_PORT=81
-if ss -tlnp 2>/dev/null | grep -q ":81 "; then
-    log_info "Puerto 81 en uso (configuración actual)"
-    CURRENT_PORT=81
-elif ss -tlnp 2>/dev/null | grep -q ":8080 "; then
-    CURRENT_PORT=8081
-    log_info "Usando puerto alternativo: $CURRENT_PORT"
-else
-    CURRENT_PORT=81
-    log_info "Usando puerto: $CURRENT_PORT"
+# Buscar un puerto disponible (evitar 80, 81, 82 que pueden estar en uso por el API)
+# Probar puertos: 8080, 8081, 8888, 9090
+PORTS_TO_TRY=(8080 8081 8888 9090)
+CURRENT_PORT=""
+
+for port in "${PORTS_TO_TRY[@]}"; do
+    if ! ss -tlnp 2>/dev/null | grep -q ":$port "; then
+        CURRENT_PORT=$port
+        log_info "Puerto disponible encontrado: $CURRENT_PORT"
+        break
+    else
+        log_warn "Puerto $port en uso, probando siguiente..."
+    fi
+done
+
+# Si no encontró ningún puerto disponible, usar 8080 de todas formas
+if [ -z "$CURRENT_PORT" ]; then
+    CURRENT_PORT=8080
+    log_warn "No se encontró puerto libre, usando $CURRENT_PORT (puede requerir detener otro servicio)"
 fi
 
 # Configurar Apache
