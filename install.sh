@@ -233,12 +233,20 @@ if [ -n "$API_ENV_FILE" ] && [ -f "$API_ENV_FILE" ]; then
     DB_HOST=${DB_HOST:-localhost}
     DB_PORT=${DB_PORT:-3306}
 
+    # Detectar ruta del API y storage
+    API_PATH=$(dirname "$API_ENV_FILE")
+    STORAGE_PATH="$API_PATH/storage"
+
     if [ -n "$DB_NAME" ] && [ -n "$DB_USER" ]; then
         log_info "Configuración de base de datos detectada:"
         echo "  Host: $DB_HOST"
         echo "  Puerto: $DB_PORT"
         echo "  Base de datos: $DB_NAME"
         echo "  Usuario: $DB_USER"
+
+        log_info "Rutas del API detectadas:"
+        echo "  API: $API_PATH"
+        echo "  Storage: $STORAGE_PATH"
 
         AUTO_CONFIG=1
     else
@@ -248,6 +256,8 @@ if [ -n "$API_ENV_FILE" ] && [ -f "$API_ENV_FILE" ]; then
 else
     log_warn "No se pudo detectar configuración automáticamente"
     AUTO_CONFIG=0
+    API_PATH=""
+    STORAGE_PATH=""
 fi
 
 # Si no se pudo auto-detectar, solicitar manualmente
@@ -279,21 +289,41 @@ fi
 echo ""
 echo "=== CREANDO CONFIGURACIÓN ==="
 
+# Preparar configuración de rutas del API
+if [ -n "$API_PATH" ]; then
+    API_CONFIG="    'api_path' => '$API_PATH',
+    'storage_path' => '$STORAGE_PATH',"
+else
+    API_CONFIG="    // 'api_path' => '/var/www/html/apidian',
+    // 'storage_path' => '/var/www/html/apidian/storage',"
+fi
+
 cat > "$INSTALL_DIR/config.local.php" <<EOF
 <?php
 \$config = [
     'server_name' => '$(hostname)',
     'detected_at' => '$(date '+%Y-%m-%d %H:%M:%S')',
+
+    // Rutas del API
+$API_CONFIG
+
+    // Configuración de base de datos
     'db_host' => '$DB_HOST',
     'db_port' => '$DB_PORT',
     'db_name' => '$DB_NAME',
     'db_user' => '$DB_USER',
     'db_pass' => '$DB_PASS',
+
+    // Rutas del backup manager
     'backup_path' => '$INSTALL_DIR/backups',
     'temp_path' => '$INSTALL_DIR/temp',
     'log_path' => '$INSTALL_DIR/logs',
+
+    // Configuración de backups
     'retention_days' => 30,
     'compression' => 'medium',
+
+    // Seguridad
     'admin_password' => password_hash('admin123', PASSWORD_DEFAULT),
 ];
 return \$config;
