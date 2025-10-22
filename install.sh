@@ -80,11 +80,21 @@ if ! systemctl is-active --quiet apache2; then
 fi
 
 # Detectar si hay terminal interactivo
+# Verificar si stdin es realmente interactivo (no un pipe)
 if [ -t 0 ]; then
     INTERACTIVE=1
 else
     INTERACTIVE=0
     log_warn "Modo no interactivo detectado (ejecutado desde curl/pipe)"
+fi
+
+# Verificar si stdin realmente funciona intentando acceder al terminal
+if [ $INTERACTIVE -eq 1 ]; then
+    # Verificar que /dev/tty existe y es accesible
+    if [ ! -c /dev/tty ] || ! : < /dev/tty 2>/dev/null; then
+        INTERACTIVE=0
+        log_warn "Stdin no disponible para lectura interactiva (ejecutado desde pipe)"
+    fi
 fi
 
 # Limpiar instalación anterior si existe
