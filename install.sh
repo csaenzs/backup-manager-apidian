@@ -360,20 +360,30 @@ cat > "$APACHE_CONF" <<EOF
 </VirtualHost>
 EOF
 
-# Verificar si el puerto está configurado en Apache
+# Verificar si el puerto está configurado en Apache ports.conf
 if ! grep -q "^Listen $CURRENT_PORT" /etc/apache2/ports.conf; then
     echo "Listen $CURRENT_PORT" >> /etc/apache2/ports.conf
-    log_info "Puerto $CURRENT_PORT agregado a Apache"
+    log_info "Puerto $CURRENT_PORT agregado a /etc/apache2/ports.conf"
+else
+    log_info "Puerto $CURRENT_PORT ya configurado en Apache"
 fi
 
-# Habilitar sitio
+# Habilitar sitio y módulos necesarios
 a2ensite backup-manager > /dev/null 2>&1 || true
 a2enmod rewrite > /dev/null 2>&1 || true
+log_info "Sitio backup-manager habilitado"
 
-# Recargar Apache
-systemctl reload apache2 2>/dev/null || systemctl restart apache2
+# Verificar configuración de Apache
+if apache2ctl configtest 2>&1 | grep -q "Syntax OK"; then
+    log_info "Configuración de Apache válida"
+else
+    log_error "Error en configuración de Apache, ejecutando configtest:"
+    apache2ctl configtest
+fi
 
-log_info "Apache configurado correctamente"
+# Reiniciar Apache para aplicar cambios
+systemctl restart apache2
+log_info "Apache reiniciado correctamente"
 
 # Obtener IP del servidor
 SERVER_IP=$(hostname -I | awk '{print $1}')
